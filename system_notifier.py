@@ -20,7 +20,6 @@ import sys
 from pathlib import Path
 from winotify import Notification
 
-# Handle optional dependencies
 try:
     from playsound3 import playsound
     PLAY_SOUND_AVAILABLE = True

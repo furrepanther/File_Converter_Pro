@@ -7,9 +7,9 @@ FileConverterApp, extracted as a mixin for clarity.  Import order:
 
     logic.py  (AppLogicMixin)
         ↑
-    ui.py     (AppUIMixin)          # builds the Qt UI on top of logic
+    ui.py     (AppUIMixin)
         ↑
-    __init__.py (FileConverterApp)  # final class combining both
+    __init__.py (FileConverterApp)
 
 Author: Hyacinthe
 Version: 2.0
@@ -130,17 +130,6 @@ from system_notifier import SystemNotifier
 # history   : standalone dialog, not needed until the user opens history.
 # templates : large module, not needed until the user opens templates.
 # tarfile   : stdlib but unnecessary at startup — only used for archive export.
-def _get_StatisticsDashboard():
-    from dashboard import StatisticsDashboard
-    return StatisticsDashboard
-
-def _get_HistoryDialog():
-    from history import HistoryDialog
-    return HistoryDialog
-
-def _get_TemplateClasses():
-    from templates import TemplateManager, EnhancedTemplatesDialog
-    return TemplateManager, EnhancedTemplatesDialog
 
 class AppLogicMixin:
     """Mixin: conversion engine and data logic for FileConverterApp."""

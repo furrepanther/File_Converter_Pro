@@ -23,19 +23,13 @@ from pathlib import Path
 import logging
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
-
-# ─────────────────────────────────────────────────────────────
-#  PAYPAL LINK  —  replace with your own
-# ─────────────────────────────────────────────────────────────
+#  PAYPAL LINK  —  replace with your own (this one is mine)
 PAYPAL_LINK = "https://www.paypal.com/donate/?hosted_button_id=GLKSMC6SYBFHG"
 
-# ─────────────────────────────────────────────────────────────
-#  Donor flag file  —  written when PayPal is opened,
+#  Donor flag file,  written when PayPal is opened,
 #  read on next launch to show the Thank You dialog.
-#
 #  config_dir must be the same folder as file_converter_config.dat
 #  so the flag survives across sessions regardless of install path.
-# ─────────────────────────────────────────────────────────────
 def _donor_flag_path(config_dir: str | None = None) -> Path:
     """
     Returns the path to donor_pending.json.
@@ -99,8 +93,6 @@ def pop_donor_flag(config_dir: str | None = None) -> dict | None:
         return data
     except Exception:
         return None
-
-
 
 #  Per-pill color palette  (border_rgba, text_hex, sel_start, sel_end)
 
@@ -1130,9 +1122,7 @@ class ThankYouDialog(QDialog):
             self.canvas.setGeometry(0, 0, self.header.width(), 160)
 
 
-# ─────────────────────────────────────────────────────────────
 #  Standalone test
-# ─────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     # Test ThankYouDialog directly

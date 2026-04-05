@@ -42,7 +42,7 @@ class ConversionWorker(QThread):
             'success' : bool
             'error'   : str  (empty string on success)
         May add any extra keys (e.g. 'operation_time', 'file_size').
-        Must NOT touch Qt widgets — communicate only via signals.
+        Must NOT touch Qt widgets, communicate only via signals.
     """
 
     # int 0-100: overall progress across all tasks
@@ -82,7 +82,7 @@ class ConversionWorker(QThread):
             except Exception as exc:
                 result = {"success": False, "error": str(exc)}
 
-            result.update(task)          # merge original task keys into result
+            result.update(task)
 
             if result.get("success"):
                 success_count += 1

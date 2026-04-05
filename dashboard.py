@@ -44,7 +44,7 @@ from PySide6.QtGui import QColor
 from datetime import datetime
 from converter import AdvancedDatabaseManager
 
-# matplotlib — lazy module-level references
+# matplotlib lazy module-level references
 # matplotlib (~40 MB) is only needed when the user opens the dashboard window.
 # We defer the actual import to _ensure_matplotlib(), called once from
 # StatisticsDashboard.__init__(), so it never loads at app startup.
@@ -121,8 +121,8 @@ class _FillBar(QWidget):
         super().__init__(parent)
         self.accent_color = color
         self.dark_mode = dark_mode
-        self._fill = 0.0          # 0.0 → 1.0
-        self._shimmer = 0.0       # shimmer position 0→1 across width
+        self._fill = 0.0
+        self._shimmer = 0.0
         self.setFixedHeight(4)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
@@ -131,7 +131,7 @@ class _FillBar(QWidget):
         self._fill_timer.setInterval(12)
         self._fill_timer.timeout.connect(self._fill_tick)
         self._fill_target = 0.0
-        self._fill_speed  = 0.055   # fraction per tick
+        self._fill_speed  = 0.055
 
         # shimmer loop (only while hovered)
         self._shimmer_timer = QTimer(self)

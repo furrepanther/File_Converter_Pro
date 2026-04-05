@@ -37,12 +37,11 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout,
                                QListWidgetItem, QFileDialog, QMessageBox, 
                                QComboBox, QSplitter, QToolBar,
                                QGroupBox, QScrollArea, QLineEdit, QDialog, 
-                               QDialogButtonBox, QFormLayout, QSpinBox, QTextEdit, QMenu, QRadioButton, QInputDialog, QSlider)
+                               QDialogButtonBox, QFormLayout, QSpinBox, QMenu, QInputDialog)
 from PySide6.QtCore import (Qt, QSize, QTimer, Signal)
 from PySide6.QtGui import ( QColor, QAction, QKeySequence, QShortcut)
 from datetime import datetime
 import sqlite3
-import time
 
 from widgets import AnimatedCheckBox
 import sys as _sys, os as _os

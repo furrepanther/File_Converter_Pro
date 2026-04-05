@@ -160,10 +160,6 @@ class AdvancedConverterEngine:
             XL_LANDSCAPE = 2
             XL_PDF       = 0    # xlTypePDF
 
-            # PowerPoint constants
-            PP_PDF           = 32  # ppSaveAsPDF
-            PP_WIN_MINIMIZED = 2
-
             # Word constants
             WD_PDF = 17   # wdFormatPDF
 

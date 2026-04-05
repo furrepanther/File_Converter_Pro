@@ -25,7 +25,6 @@ Author: Hyacinthe
 Version: 1.0
 """
 
-# Standard Library
 import sys
 import os
 from datetime import datetime
@@ -49,14 +48,12 @@ from config  import ConfigManager, is_windows_dark_mode
 from app     import FadingMainWindow
 from dialogs import ModernSplashScreen, TermsAndPrivacyDialog
 
-#  Constants
-
 SOCKET_NAME         = "FileConverterPro_SingleInstance"
 
-SPLASH_DELAY        = 3000   # ms — hold splash before transitioning
-FADEIN_DELAY        = 100    # ms — delay before fade-in starts
-STATUSBAR_DELAY     = 700    # ms — delay before status-bar message
-SPLASH_DELETE_DELAY = 1100   # ms — delay before destroying splash widget
+SPLASH_DELAY        = 3000
+FADEIN_DELAY        = 100
+STATUSBAR_DELAY     = 700
+SPLASH_DELETE_DELAY = 1100
 
 CLI_COMMANDS = frozenset({"status", "reset", "unlock", "reset-all", "-h", "--help", "help"})
 
@@ -91,7 +88,6 @@ def _is_lang_flag(arg: str) -> bool:
     """Return True for  --fr  --en  --de  --en-revisited  etc."""
     if not arg.startswith("--"):
         return False
-    # strip leading --  and optional quotes
     code = arg[2:].strip('"').strip("'")
     # a lang flag is never a known CLI command and contains only
     # letters, digits, hyphens, dots, underscores (valid lang codes / .lang names)
@@ -130,13 +126,12 @@ def get_forced_language(argv: list[str]) -> str | None:
         if a.startswith("--lang:"):
             return a.split(":", 1)[1].strip().lower()
 
-        # --<code>  shorthand  (--fr, --en, --en-revisited, --"my lang", …)
         # Skip reserved flags that are not language codes.
         if a.startswith(("--theme=", "--theme:")):
             i += 1
             continue
         if a == "--theme":
-            i += 2  # skip --theme and its value token
+            i += 2
             continue
         if a.startswith("--") and a not in CLI_COMMANDS:
             code = a[2:].strip('"').strip("'").strip().lower()
@@ -297,7 +292,7 @@ Examples:
             print("Make sure achievements.db exists in the current directory.")
             sys.exit(1)
 
-    # Thin proxies — guarantee the manager is loaded before every call
+    # Thin proxies: guarantee the manager is loaded before every call
     def _mgr_show_status(self)         : self._load_manager(); self._mgr[0]()
     def _mgr_reset_one(self, aid: str) : self._load_manager(); self._mgr[1](aid)
     def _mgr_unlock_one(self, aid: str): self._load_manager(); self._mgr[2](aid)
@@ -383,7 +378,6 @@ class AppBootstrap:
             config["language"] = "fr"
             self.config_manager.save_config(config)
 
-        # Forced theme (--theme dark / --theme light / --theme=dark …)
         # Overrides system theme detection and whatever is saved in config.
         if self.forced_theme is not None:
             config["dark_mode"]         = (self.forced_theme == "dark")
@@ -486,22 +480,17 @@ class WindowTransition:
 
         Timings are coordinated to avoid visual glitches and ensure smooth transitions.
         """
-        FADE_OUT_DURATION = 500  # ms — must match the value passed to fade_out
+        FADE_OUT_DURATION = 500
 
         def _crossfade():
             win.fade_in(600)
             try:
                 self.splash.fade_out(FADE_OUT_DURATION)
             except RuntimeError:
-                # The splash C++ object has already been deleted — nothing to do
                 return
-            # Schedule deleteLater AFTER the animation has actually finished
             QTimer.singleShot(FADE_OUT_DURATION + 100, self.splash.deleteLater)
 
         QTimer.singleShot(FADEIN_DELAY, _crossfade)
-
-        # Removed the singleShot deleteLater that was at SPLASH_DELETE_DELAY
-        # (now handled inside _crossfade above)
 
         QTimer.singleShot(STATUSBAR_DELAY, lambda:
             win.status_bar.showMessage(
@@ -528,44 +517,38 @@ class WindowTransition:
 #  Entry point
 
 def main() -> None:
-    # 1 ── CLI mode (exits before any Qt initialisation)
+    # 1/ CLI mode (exits before any Qt initialisation)
     cli = CLIHandler(sys.argv)
     if cli.is_cli_mode():
         cli.run()
 
-    # 2 ── Detect files dropped onto the exe icon
-    #       e.g: user drags file.pdf onto File_converter.exe
+    # 2/ Detect files dropped onto the exe icon
     dropped_files = get_dropped_files(sys.argv)
     if dropped_files:
         print(f"[INFO] Files dropped on icon: {dropped_files}")
 
-    # 3 ── Detect forced language flag (dev mode + installer handoff)
-    #       --fr  --en  --en-revisited  --lang en  --lang=en-revisited
+    # 3/ Detect forced language flag (dev mode + installer handoff)
     forced_language = get_forced_language(sys.argv)
 
-    # 4 ── Detect forced theme flag  --theme dark  --theme=light
+    # 4/ Detect forced theme flag  --theme dark  --theme=light
     forced_theme = get_forced_theme(sys.argv)
 
-    # 5 ── Prevent duplicate instances
-    # Assigned to a variable so the QLocalServer it holds stays alive
-    # for the entire duration of main(). Without this, the guard is
-    # garbage-collected immediately after .acquire() returns, the server
-    # socket is released, and a second instance can launch freely.
+    # 5/ Prevent duplicate instances
     _guard = SingleInstanceGuard()
     _guard.acquire()
 
-    # 6 ── Qt application + configuration
+    # 6/ Qt application + configuration
     bootstrap = AppBootstrap(forced_language=forced_language, forced_theme=forced_theme).setup()
 
-    # 7 ── Enforce Terms & Privacy acceptance
+    # 7/ Enforce Terms & Privacy acceptance
     TermsGuard(bootstrap.config, bootstrap.config_manager).enforce()
 
-    # 8 ── Splash screen
+    # 8/ Splash screen
     splash = ModernSplashScreen(bootstrap.config)
     splash.show()
     splash.start_animation()
 
-    # 9 ── Delayed crossfade to main window (pass dropped files if any)
+    # 9/ Delayed crossfade to main window (pass dropped files if any)
     QTimer.singleShot(
         SPLASH_DELAY,
         lambda: WindowTransition(splash, bootstrap.config_manager, dropped_files).start(),

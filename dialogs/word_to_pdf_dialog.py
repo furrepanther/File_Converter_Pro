@@ -21,13 +21,11 @@ Author: Hyacinthe
 Version: 1.0
 """
 
-# Standard imports
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QGroupBox, QButtonGroup, QLabel,
     QFormLayout, QComboBox, QDialogButtonBox, QTextEdit, QSizePolicy
 )
 
-# Local imports
 import sys as _sys, os as _os
 _PKG_DIR  = _os.path.dirname(_os.path.abspath(__file__))
 _ROOT_DIR = _os.path.dirname(_PKG_DIR)
@@ -37,8 +35,6 @@ if _ROOT_DIR not in _sys.path:
 from widgets import AnimatedCheckBox
 
 from translations import TranslationManager
-
-# Constants
 
 # Theme color tokens — dark mode
 _DARK = {

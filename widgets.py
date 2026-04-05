@@ -382,17 +382,17 @@ class DraggableListWidget(QListWidget):
         self._glitch_frame        = 0
         self._glitch_active       = False
         self._glitch_ticks        = 0
-        self._glitch_lines        = {}          # {line_idx: glitched_string}
+        self._glitch_lines        = {}
         self._glitch_offset       = QPointF(0, 0)
         self._scanline_y          = 0
-        self._glitch_palette_idx  = 0           # current RGB palette index
-        self._glitch_rgb_override = {}          # {line_idx: (r,g,b)} colour override
+        self._glitch_palette_idx  = 0
+        self._glitch_rgb_override = {}
 
         # Glitch duration control: active for 10 s, then freeze until hover
-        self._glitch_enabled      = True        # False = stable (no new bursts)
+        self._glitch_enabled      = True
         self._glitch_stop_timer   = QTimer(self)
         self._glitch_stop_timer.setSingleShot(True)
-        self._glitch_stop_timer.setInterval(10_000)   # 10 seconds
+        self._glitch_stop_timer.setInterval(10_000)
         self._glitch_stop_timer.timeout.connect(self._stop_glitch_effects)
         self._glitch_stop_timer.start()
 
@@ -563,12 +563,12 @@ class DraggableListWidget(QListWidget):
         try:
             gap_idx = art.index("")
         except ValueError:
-            gap_idx = len(art)  # no gap — treat as single block
-        n1 = gap_idx            # rows in block 1
-        n2 = len(art) - gap_idx - 1  # rows in block 2 (after the gap row)
+            gap_idx = len(art)
+        n1 = gap_idx
+        n2 = len(art) - gap_idx - 1
 
         line_h  = fm.height() + 2
-        gap_h   = line_h * 2       # extra vertical space between the two blocks
+        gap_h   = line_h * 2
         total_h = n1 * line_h + gap_h + n2 * line_h
         start_y = max(10, (h - total_h) // 2)
 
@@ -617,7 +617,7 @@ class DraggableListWidget(QListWidget):
 
         for i, line in enumerate(art):
             if not line:
-                continue  # skip gap row
+                continue
 
             txt = self._glitch_lines.get(i, line)
             tw  = fm.horizontalAdvance(txt)
@@ -632,7 +632,7 @@ class DraggableListWidget(QListWidget):
                 b = 255
                 color = QColor(min(r, 255), min(g, 255), b)
             else:
-                row_in_block2 = i - n1 - 1   # -1 for the gap entry
+                row_in_block2 = i - n1 - 1
                 if row_in_block2 < 0:
                     continue
                 y = start_y + n1 * line_h + gap_h + row_in_block2 * line_h + fm.ascent()
@@ -645,7 +645,6 @@ class DraggableListWidget(QListWidget):
             # RGB override for glitched lines
             if i in self._glitch_rgb_override:
                 rgb = self._glitch_rgb_override[i]
-                # Add a subtle flicker to the override colour
                 flicker = 0.75 + 0.25 * math.sin(t * 7 + i)
                 color = QColor(
                     min(255, int(rgb[0] * flicker)),

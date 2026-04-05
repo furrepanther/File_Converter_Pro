@@ -35,8 +35,6 @@ from PySide6.QtGui import (
     QPixmap, QFont, QFontDatabase, QColor, QPainter, QPainterPath,
     QBrush, QPen, QConicalGradient, QRadialGradient,
     QTransform, QGuiApplication)
-# QMediaPlayer / QAudioOutput imported lazily in _play_sound() — avoids loading
-# audio codecs at startup when sound may never be used.
 
 from translations import TranslationManager
 
@@ -71,9 +69,8 @@ class PerlinNoise:
         rng = random.Random(self.seed)
         perm = list(range(256))
         rng.shuffle(perm)
-        self.p = perm * 2  # doubled — avoids modulo wrapping
+        self.p = perm * 2  # doubled, avoids modulo wrapping
 
-    # Internal math
     @staticmethod
     def _fade(t: float) -> float:
         """Quintic smoothstep: 6t⁵ − 15t⁴ + 10t³  (C² continuous)"""
@@ -150,7 +147,7 @@ class PerlinNoise:
 
         return value / max_value
 
-#  PARTICLE SYSTEM  —  Event-themed floating particles
+#  PARTICLE SYSTEM, Event-themed floating particles
 
 class Particle:
     """Single floating particle for celebration effects."""
@@ -469,11 +466,11 @@ class LiquidBorderWidget(QWidget):
         grad.setColorAt(1.0, QColor(11, 14, 20, 255))
         painter.fillPath(bg, QBrush(grad))
 
-        # Liquid path (rebuilt only when size changes)
+        # Liquid path
         sz = (self.width(), self.height())
         if sz != self._cached_size:
             self._cached_size = sz
-        # Always rebuild — small widget, fast enough; correctness > micro-opt
+        # Always rebuild, small widget, fast enough; correctness > micro-opt
         path = self._build_liquid_path()
 
         # Conical gradient for the main line
@@ -488,29 +485,29 @@ class LiquidBorderWidget(QWidget):
 
         bw = self.border_width
 
-        # Layer 1 — deep shadow halo
+        # Layer 1 - deep shadow halo
         painter.setPen(QPen(QColor(0, 0, 0, 70), bw + 14))
         painter.drawPath(path)
 
-        # Layer 2 — wide outer glow (theme color)
+        # Layer 2 - wide outer glow (theme color)
         r, g, b = self.theme.glow_color
         outer = QColor(r, g, b, 40)
         painter.setPen(QPen(outer, bw + 10))
         painter.drawPath(path)
 
-        # Layer 3 — mid glow
+        # Layer 3 - mid glow
         mid = QColor(r, g, b, 65)
         painter.setPen(QPen(mid, bw + 5))
         painter.drawPath(path)
 
-        # Layer 4 — main colored line
+        # Layer 4 - main colored line
         pen = QPen(QBrush(cg), bw)
         pen.setCapStyle(Qt.RoundCap)
         pen.setJoinStyle(Qt.RoundJoin)
         painter.setPen(pen)
         painter.drawPath(path)
 
-        # Layer 5 — bright inner highlight
+        # Layer 5 - bright inner highlight
         hi = self.theme.cyclic_color(self.hue_offset, 0, self.time)
         hi.setAlpha(170)
         painter.setPen(QPen(hi, bw * 0.45))
@@ -550,7 +547,7 @@ class LiquidBorderWidget(QWidget):
         painter.setPen(QPen(arc_color, 2.0, Qt.SolidLine, Qt.RoundCap))
         painter.drawArc(rect, 90 * 16, -span)   # start at top, go clockwise
 
-#  ANIMATED PROPERTY MIXIN  —  PySide6-compatible Q_PROPERTY workaround
+#  ANIMATED PROPERTY MIXIN. PySide6-compatible Q_PROPERTY workaround
 
 class _AnimBase(QDialog):
     """
@@ -727,7 +724,7 @@ class SpecialEventPopup(_AnimBase):
         content.addWidget(text_w, 1)
         root.addLayout(content)
 
-        # — Close button row —
+        # Close button row
         close_row = QHBoxLayout()
         close_row.addStretch()
         self.close_btn = QPushButton()
@@ -873,7 +870,7 @@ class SpecialEventPopup(_AnimBase):
         self._stop_sound()
         event.accept()
 
-#  CLOSE BUTTON PAINTER  —  module-level helper (not recreated per-instance)
+#  CLOSE BUTTON PAINTER. Module-level helper (not recreated per-instance)
 
 def _draw_close_btn(widget: QWidget, _event):
     p = QPainter(widget)
@@ -888,7 +885,7 @@ def _draw_close_btn(widget: QWidget, _event):
     p.drawLine(8, 18, 18, 8)
     p.end()
 
-#  BIRTHDAY INPUT DIALOG  —  Compact birthdate collector
+#  BIRTHDAY INPUT DIALOG. Compact birthdate collector
 
 class BirthdayInputDialog(QDialog):
     """

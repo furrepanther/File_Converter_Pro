@@ -428,7 +428,7 @@ class PreviewDialog(QDialog):
             if w and w is not self.preview_label:
                 w.deleteLater()
         self.preview_label.clear()
-        self.preview_label.setParent(None)  # detach, will be re-added if needed
+        self.preview_label.setParent(None)
 
     def _show_error(self, msg):
         self.preview_label.setParent(self.content_area)

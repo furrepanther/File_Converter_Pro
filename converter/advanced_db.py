@@ -348,7 +348,7 @@ class AdvancedDatabaseManager:
 
         # top_formats → use conversion_type strings as "format" labels
         # top_operations → same list (dashboard shows both identically styled)
-        top_types = stats["top_types"]   # [(conversion_type, count), ...]
+        top_types = stats["top_types"]
 
         # Also enrich with human-readable labels
         _LABELS = {

@@ -1,6 +1,5 @@
 """
 Achievements UI for File Converter Pro  —  Premium Edition
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Aesthetic: Luxury game HUD — deep-space dark, rich gold accents, gem-tier palette.
 Every card, ring and bar is custom-drawn with QPainter for a premium feel.
 
@@ -330,16 +329,6 @@ class GlobalProgressBar(QWidget):
         self.setFixedHeight(22)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
-    def setValue(self, v: int):
-        self._value = max(0, min(v, self._maximum))
-        self.update()
-
-    def setFormat(self, _fmt: str):
-        self.update()
-
-    def setStyleSheet(self, _ss: str):
-        pass   # no-op: painted manually
-
     @property
     def _fraction(self) -> float:
         return self._value / self._maximum
@@ -356,8 +345,7 @@ class GlobalProgressBar(QWidget):
         p.setBrush(QColor(DS.BG_RAISED))
         p.drawRoundedRect(QRectF(0, 0, w, h), r, r)
 
-        # Fill — intersect rounded rect with fill rect so left is rounded,
-        # right is clipped flat (or full pill when complete)
+        # Fill
         fill_w = w * frac
         if fill_w > 0:
             full_pill = QPainterPath()
@@ -394,7 +382,7 @@ class AchievementCard(QFrame):
         self.icon_path     = icon_path
         self.language      = language
         self.dark_mode     = dark_mode
-        from translations import TranslationManager as _TM  # noqa: F811 (translations in sys.path via package init)
+        from translations import TranslationManager as _TM
         self._tm = _TM(); self._tm.set_language(language)
 
         self._hover        = False
@@ -953,12 +941,11 @@ class RankBadgeWidget(QWidget):
         # Direct lookup first (exact FR or EN name)
         level = _RANK_ANIM_MAP.get(key, None)
         if level is None:
-            # Fuzzy: find longest matching key contained in the name
             for k, lv in _RANK_ANIM_MAP.items():
                 if k in key:
                     level = lv
                     break
-        return level if level is not None else 0   # fallback = Rookie
+        return level if level is not None else 0
 
     def _load_icon(self, icon_path: str):
         self._pixmap = None
@@ -999,7 +986,6 @@ class RankBadgeWidget(QWidget):
         rc     = self.rank_color
 
         # 1. Outer animation layer (behind badge)
-        # (a) Pulse glow — all tiers, intensity scales with level
         if lv == 0:
             # Bronze: single slow heartbeat
             pulse_a = int(18 + 14 * math.sin(self._phase))
@@ -1041,7 +1027,7 @@ class RankBadgeWidget(QWidget):
 
         # (c) Orbiting satellite dots — platinum (1 dot) & diamond (3 dots)
         if lv >= 3:
-            orbit_r = h * 0.58      # orbit radius around badge centre
+            orbit_r = h * 0.58
             dot_r   = 3.0 if lv == 3 else 2.5
 
             def _draw_dot(phase_val: float, hue_shift: float, alpha_extra: int):

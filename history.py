@@ -74,13 +74,13 @@ def _make_tm(language):
 class HistoryDialog(QDialog):
     def __init__(self, db_manager, parent=None, language="fr", adv_db_manager=None):
         super().__init__(parent)
-        self.db_manager     = db_manager          # main DB
-        self.adv_db_manager = adv_db_manager      # advanced conversions DB (optional)
-        self._use_adv_db    = False               # which DB is currently shown
+        self.db_manager     = db_manager
+        self.adv_db_manager = adv_db_manager
+        self._use_adv_db    = False
         self.language       = language
         self._tm            = _make_tm(language)
         self.parent_window  = parent
-        self._loader_thread = None   # currently running QThread (prevents premature GC)
+        self._loader_thread = None
         self.setWindowTitle(self.translate_text("📋 Historique des Conversions"))
         self.setModal(False)
         self.setMinimumSize(1000, 700)
@@ -682,7 +682,7 @@ class HistoryDialog(QDialog):
             self.history_table.setRowCount(0)
 
     def open_file(self, row):
-        target_file = self.history_table.item(row, 4).toolTip()  # Full path from the tooltip
+        target_file = self.history_table.item(row, 4).toolTip()
         
         if os.path.exists(target_file):
             try:

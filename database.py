@@ -29,7 +29,7 @@ class DatabaseManager:
 
     def __init__(self):
         self.db_path = "file_converter_stats.db"
-        # Persistent connection — avoids re-opening the file on every call.
+        # Persistent connection, avoids re-opening the file on every call.
         # WAL mode allows concurrent reads while a write is in progress.
         self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self._conn.execute("PRAGMA journal_mode=WAL")

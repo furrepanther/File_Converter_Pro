@@ -15,17 +15,16 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import ttk
 
-# Base directory (works both in dev and onedir)
 if getattr(sys, 'frozen', False):
     BASE_DIR = Path(sys.executable).parent
 else:
     BASE_DIR = Path(__file__).parent
 
 
-# ─────────────────────────────────────────────
+
 #  CHECK DEFINITIONS  (label, rel_path, type)
 #  type = 'file' | 'dir'
-# ─────────────────────────────────────────────
+
 CHECKS_CORE = [
     ("Main executable",               "File Converter Pro.exe",                        "file"),
     ("icon.ico",                      "_internal/icon.ico",                            "file"),
@@ -107,9 +106,7 @@ ALL_GROUPS = {
 ALL_CHECKS = CHECKS_CORE + CHECKS_MODULES + CHECKS_RESOURCES + CHECKS_QT + CHECKS_LIBS
 
 
-# ─────────────────────────────────────────────
 #  THEMES
-# ─────────────────────────────────────────────
 DARK = {
     "bg":         "#0f1117",
     "surface":    "#1a1d27",
@@ -140,9 +137,7 @@ LIGHT = {
 }
 
 
-# ─────────────────────────────────────────────
 #  MAIN APP
-# ─────────────────────────────────────────────
 class QuickCheckApp:
     def __init__(self, root: tk.Tk):
         self.root = root
@@ -179,7 +174,7 @@ class QuickCheckApp:
         self._apply_theme()
         root.after(300, self._start_check)
 
-    # ── Build ──────────────────────────────────
+    # Build
     def _build_ui(self):
         t = self.theme
 
@@ -314,7 +309,7 @@ class QuickCheckApp:
                 c.yview_scroll(int(-1 * (event.delta / 120)), "units")
         self.root.bind_all("<MouseWheel>", _on_mousewheel)
 
-    # ── Theme ──────────────────────────────────
+    # Theme
     def _apply_theme(self):
         t = self.theme
         self.root.configure(bg=t["bg"])
@@ -373,7 +368,7 @@ class QuickCheckApp:
         self.theme = DARK if self.dark else LIGHT
         self._apply_theme()
 
-    # ── Row helpers ────────────────────────────
+    # Row helpers
     def _reset_row(self, path: str):
         t = self.theme
         r = self.rows[path]
@@ -401,7 +396,7 @@ class QuickCheckApp:
         r["path_lbl"].configure(fg=t["text_dim"] if ok else color)
         r["detail_lbl"].configure(fg=color)
 
-    # ── Worker thread ──────────────────────────
+    # Worker thread
     def _start_check(self):
         if self._running:
             return
@@ -488,9 +483,7 @@ class QuickCheckApp:
             self.close_btn.pack(fill="x", padx=20, pady=(0, 12), ipady=6)
 
 
-# ─────────────────────────────────────────────
 #  ENTRY POINT
-# ─────────────────────────────────────────────
 if __name__ == "__main__":
     root = tk.Tk()
     app = QuickCheckApp(root)

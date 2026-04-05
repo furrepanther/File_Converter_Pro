@@ -17,10 +17,8 @@ from PySide6.QtCore import QObject, Signal, QTimer
 import sys
 import traceback
 
-# translations.py is at the project root (parent folder of this package).
-# Add the root to sys.path if it is not already there.
-_PKG_DIR  = os.path.dirname(os.path.abspath(__file__))   # .../achievements/
-_ROOT_DIR = os.path.dirname(_PKG_DIR)                     # project root directory
+_PKG_DIR  = os.path.dirname(os.path.abspath(__file__))
+_ROOT_DIR = os.path.dirname(_PKG_DIR)
 
 if _ROOT_DIR not in sys.path:
     sys.path.insert(0, _ROOT_DIR)
@@ -40,9 +38,6 @@ class AchievementSystem(QObject):
         self.achievements_data = None
         self.stats = {}
         
-        # app_dir = project root, whether in frozen mode (PyInstaller)
-        # or in development mode. The __file__ path now lives inside
-        # the achievements/ subdirectory, so we go up one level.
         if getattr(sys, 'frozen', False):
             app_dir = os.path.dirname(sys.executable)
         else:
@@ -84,7 +79,7 @@ class AchievementSystem(QObject):
             "#FF1744"   # Mythic
         ]
         self.current_rank_index = 0
-        self.last_rank_index = -1  # temporaire, corrige ci-dessous
+        self.last_rank_index = -1 # To track rank changes and avoid duplicate signals
         self.update_all_progress()
 
         # Initialize last_rank_index with the current rank computed from the DB,

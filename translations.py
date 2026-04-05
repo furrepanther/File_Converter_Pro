@@ -65,7 +65,6 @@ _LANGUAGES_DIR = _get_languages_dir()
 class TranslationManager:
     def __init__(self):
         self.current_language = "fr"
-        # Metadata for external languages: code -> dict with name/author/version...
         self._external_meta = {}
 
         self.translations = {

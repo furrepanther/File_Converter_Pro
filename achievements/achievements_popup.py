@@ -41,7 +41,6 @@ class AchievementPopup(QDialog):
         elif hasattr(parent, 'config') and 'dark_mode' in parent.config:
             self.dark_mode = parent.config.get('dark_mode', True)
         self.sound_effect = None
-        # setup_ui is called via init_ui() after set_translator() from app.py
 
     def set_translator(self, tm) -> None:
         """Share the app-wide TranslationManager, then build the UI."""

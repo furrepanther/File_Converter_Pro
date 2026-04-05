@@ -14,7 +14,6 @@ import sqlite3
 from datetime import datetime
 import os
 
-# This file is in achievements/ — the project root is the parent folder.
 _PKG_DIR  = os.path.dirname(os.path.abspath(__file__))
 _ROOT_DIR = os.path.dirname(_PKG_DIR)
 if _ROOT_DIR not in sys.path:
@@ -27,8 +26,6 @@ from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
 from PySide6.QtCore import Qt, QUrl
 from shiboken6 import isValid as shiboken6_isValid
 from PySide6.QtGui import QColor, QShortcut, QKeySequence, QAction, QIcon
-# QMediaPlayer / QAudioOutput imported lazily in play_sound() — avoids loading
-# audio codecs at startup when sound may never be used.
 try:
     from config import ConfigManager
 except ImportError as e:
