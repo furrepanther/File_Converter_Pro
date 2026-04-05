@@ -243,7 +243,7 @@ All image conversions use Pillow at maximum quality with EXIF metadata preserved
 | MKV | MP4 |
 | MOV | MP4 |
 
-All audio and video conversions are powered by a bundled `ffmpeg` binary located automatically at runtime, with quality presets per format.
+All audio and video conversions are powered by a bundled `ffmpeg` binary located automatically at runtime, with quality presets per format. (you have to install it yourself)
 
 ---
 
