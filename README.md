@@ -726,7 +726,7 @@ A huge thanks to everyone who has supported the project whether by testing the a
 This project is **Open Source**. You are free to **fork, modify, and adapt** the code for your own projects, provided that you comply with the terms of the GPLv3 License.
 
 If you use or adapt this project, please include:
-- A link to the original repository: [github.com/Hyacinthe-primus](https://github.com/Hyacinthe-primus/File_Converter_Pro)
+- A link to the original repository: [github.com/Hyacinthe-primus/File_Converter_Pro](https://github.com/Hyacinthe-primus/File_Converter_Pro)
 
 > [!TIP]
 > While the GPLv3 allows for many uses, keeping your modifications open-source is a requirement. For any inquiries regarding use cases not covered by this license, feel free to reach out.
