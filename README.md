@@ -733,7 +733,7 @@ If you use or adapt this project, please include:
 
 > [!IMPORTANT]
 > **Dual Licensing:** This project is available under the GPLv3 for open-source use.
-> For integration into proprietary or commercial products, a separate commercial license
+> For integration into proprietary or commercial products without sharing your code, a separate commercial license
 > is available — contact the author for explicit permission.
 
 ---
@@ -755,7 +755,7 @@ This project uses a **dual licensing model**:
 
   * [`LICENSE.txt`](LICENSE/LICENSE.txt)
 
-- **Commercial License:** For integration into proprietary or closed-source products, a separate commercial license is required. Please contact the author for explicit permission: [hyacintheatho91@gmail.com](mailto:hyacintheatho91@gmail.com)
+- **Commercial License:** For integration into proprietary or closed-source products, a separate commercial license is required. Please contact the author for explicit permission: read more here * [Commercial license](COMMERCIAL_LICENSE.md)
 
 © 2026 Prime Enterprises (Hyacinthe). All rights reserved.
 
