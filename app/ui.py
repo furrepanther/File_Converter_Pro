@@ -2359,7 +2359,7 @@ class AppUIMixin(AppLogicMixin):
         self._update_project_label()
         self.update_file_counter()
         self.status_bar.showMessage(
-            self.translate_text(f"Nouveau projet créé : {proj_name}"))
+            self.translate_text("Nouveau projet créé") + ":" + f" {proj_name}" if proj_name else "")
 
     def open_project(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -2936,7 +2936,7 @@ class AppUIMixin(AppLogicMixin):
         
         msg_box = QMessageBox(self)
         msg_box.setWindowTitle(self.translate_text("Confirmation"))
-        msg_box.setText(self.translate_text(f"Voulez-vous vraiment supprimer tous les fichiers ({len(self.files_list)} fichiers) ?"))
+        msg_box.setText(self.translate_text("confirm_delete_all").format(count=len(self.files_list)))
         msg_box.setIcon(QMessageBox.Question)
         
         # Create custom buttons

@@ -149,7 +149,7 @@ class AppLogicMixin:
         self.translation_manager.set_language(self.current_language)
         
         self.files_list = []
-        self.current_project = self.config.get("last_project")
+        self.current_project = None
         # JSON project metadata (name, notes, created_at, etc.)
         self._project_data = {}
         self.preview_dialog = None
