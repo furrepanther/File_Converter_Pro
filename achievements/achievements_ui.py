@@ -319,8 +319,8 @@ class StatBarWidget(QWidget):
 
 class GlobalProgressBar(QWidget):
     """
-    Custom-drawn progress bar — fully rounded pill, no QProgressBar chunk issues.
-    Height: 22px. Text: bold, always contrasted. Fill: gold gradient.
+    Custom progress bar (rounded pill style).
+    Height: 22px. Bold text. Gold gradient fill.
     """
     def __init__(self, value: int = 0, maximum: int = 100, parent=None):
         super().__init__(parent)
@@ -329,8 +329,28 @@ class GlobalProgressBar(QWidget):
         self.setFixedHeight(22)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
+    def setValue(self, value: int) -> None:
+        """Set value and repaint."""
+        self._value = max(0, min(int(value), self._maximum))
+        self.update()
+
+    def setMaximum(self, maximum: int) -> None:
+        """Set max value."""
+        self._maximum = max(int(maximum), 1)
+        self._value   = min(self._value, self._maximum)
+        self.update()
+
+    def value(self) -> int:
+        """Get current value."""
+        return self._value
+
+    def maximum(self) -> int:
+        """Get max value."""
+        return self._maximum
+
     @property
     def _fraction(self) -> float:
+        """Progress ratio (0–1)."""
         return self._value / self._maximum
 
     def paintEvent(self, _event):
