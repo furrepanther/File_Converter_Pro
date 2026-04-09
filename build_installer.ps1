@@ -1,5 +1,4 @@
 # Automated Build Script - File Converter Pro
-# Inno Setup compilation with enhanced stats, spinner, and build history
 
 param(
     [string]$IssFile   = "setup.iss",
@@ -11,7 +10,6 @@ param(
 $IsccPath        = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
 $JsonHistoryPath = Join-Path $OutputDir "build_stats.json"
 
-# Colors
 $ColorTitle     = "Cyan"
 $ColorSuccess   = "Green"
 $ColorWarning   = "Yellow"
@@ -20,15 +18,12 @@ $ColorInfo      = "White"
 $ColorHighlight = "Magenta"
 $ColorDim       = "Gray"
 
-# Check tracking (for color-coded summary)
 $script:Checks = [System.Collections.Generic.List[hashtable]]::new()
 
 function Add-CheckResult {
     param([string]$Label, [bool]$Passed, [string]$Detail = "")
     $script:Checks.Add(@{ Label = $Label; Passed = $Passed; Detail = $Detail })
 }
-
-# UTILITY FUNCTIONS
 
 function Write-Title {
     param([string]$Text)
@@ -77,7 +72,6 @@ function Get-FileSHA256Short {
     return $full.Substring(0, 16) + "..."
 }
 
-# Spinner
 function Invoke-WithSpinner {
     param(
         [string]$Message,
@@ -123,7 +117,6 @@ function Invoke-WithSpinner {
     return $code
 }
 
-# SYSTEM INFORMATION
 
 function Get-SystemInfo {
     $os  = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue
@@ -142,7 +135,6 @@ function Get-SystemInfo {
     }
 }
 
-# DIST FILE INVENTORY
 
 function Get-DistInventory {
     param([string]$Dir)
@@ -176,7 +168,6 @@ function Get-DistInventory {
     }
 }
 
-# BUILD HISTORY LOADER
 
 function Get-BuildHistory {
     param([string]$Path)
@@ -188,8 +179,6 @@ function Get-BuildHistory {
         else { return @($obj) }
     } catch { return @() }
 }
-
-# COLOR-CODED SUMMARY
 
 function Write-BuildSummary {
     Write-Title "BUILD SUMMARY"
@@ -217,8 +206,6 @@ function Write-BuildSummary {
     Write-Host ""
 }
 
-# SCRIPT START
-
 $BuildStart = Get-Date
 $SysInfo    = Get-SystemInfo
 
@@ -232,8 +219,6 @@ Write-Host "  CPU      : $($SysInfo.CPU)  [$($SysInfo.CPUCores) logical cores]" 
 Write-Host "  RAM      : $($SysInfo.TotalRAM_GB) GB total  /  $($SysInfo.FreeRAM_GB) GB free" -ForegroundColor $ColorDim
 Write-Host "  PS       : $($SysInfo.PSVersion)"                           -ForegroundColor $ColorDim
 Write-Host ""
-
-# PREREQUISITES
 
 Write-Title "PREREQUISITES CHECK"
 
@@ -252,7 +237,6 @@ if ($issOk) { Write-Success "Script found: $IssFile" }
 else        { Write-ErrorMsg ".iss file not found: $IssFile" }
 Add-CheckResult ".iss script" $issOk $IssFile
 
-# Onedir folder
 Write-Step "Checking onedir folder..."
 $onedirOk = Test-Path $DistDir
 if ($onedirOk) {
@@ -264,7 +248,6 @@ if ($onedirOk) {
     Add-CheckResult "Onedir folder" $false "not found — run build.ps1 first"
 }
 
-# Quick Check exe
 Write-Step "Checking Quick Check executable..."
 $quickCheckExe = "$DistDir\Quick Check.exe"
 $quickCheckOk = Test-Path $quickCheckExe
@@ -282,8 +265,6 @@ if (-not $isccOk -or -not $issOk) {
     Write-ErrorMsg "Critical prerequisites missing. Aborting."
     exit 1
 }
-
-# ISS SCRIPT ANALYSIS
 
 Write-Title "ISS SCRIPT ANALYSIS"
 Write-Step "Parsing script metadata..."
@@ -306,8 +287,6 @@ Write-Host "  Min Windows ver  : $minVersion"     -ForegroundColor $ColorDim
 Write-Host "  Architecture     : $archMode"       -ForegroundColor $ColorDim
 Write-Host "  Compression      : $compression"    -ForegroundColor $ColorWarning
 Write-Host "  Solid Compress   : $solidComp"      -ForegroundColor $ColorWarning
-
-# DIST FOLDER ANALYSIS
 
 Write-Title "DIST FOLDER ANALYSIS"
 Write-Step "Scanning $DistDir\ ..."
@@ -347,10 +326,7 @@ if ($byExt) {
 Add-CheckResult "Dist folder exists" ($DistInventory.FileCount -gt 0) `
     "$($DistInventory.FileCount) files / $(Format-FileSize $DistInventory.TotalSize)"
 
-# Store dist folder total size for later comparison
 $DistFolderSize = $DistInventory.TotalSize
-
-# CLEAN OUTPUT FOLDER
 
 Write-Title "INSTALLER COMPILATION"
 Write-Step "Cleaning output folder..."
@@ -398,8 +374,6 @@ if ($compileOk) {
     exit 1
 }
 
-# INSTALLER ANALYSIS
-
 Write-Title "INSTALLER ANALYSIS"
 
 $InstallerFile = Get-ChildItem -Path $OutputDir -Filter "*.exe" |
@@ -437,8 +411,6 @@ if ($DistFolderSize -gt 0) {
 }
 
 Add-CheckResult "Installer produced" $true "$(Format-FileSize $InstallerSize)"
-
-# FULL BUILD REPORT TABLE
 
 Write-Title "FULL BUILD REPORT"
 
@@ -572,12 +544,8 @@ Write-Host "   • Architecture : x64 only" -ForegroundColor White
 
 Write-BuildSummary
 
-# EXPORT build_stats.json
-# Strategy: keep a lightweight size-only history + full details for the current build
-
 Write-Step "Saving build statistics..."
 
-# Load existing history to retrieve previous lightweight entries
 $previousSizes = [System.Collections.ArrayList]::new()
 $runNumber = 1
 
@@ -586,14 +554,12 @@ if (Test-Path $JsonHistoryPath) {
         $existing = Get-Content $JsonHistoryPath -Raw -Encoding UTF8 | ConvertFrom-Json
         $runNumber = $existing.TotalRuns + 1
 
-        # Retrieve size history from previous builds
         if ($existing.PSObject.Properties["SizeHistory"]) {
             foreach ($entry in $existing.SizeHistory) {
                 [void]$previousSizes.Add($entry)
             }
         }
 
-        # Archive the previous CurrentBuild into the size history
         if ($existing.PSObject.Properties["CurrentBuild"]) {
             [void]$previousSizes.Add([ordered]@{
                 Run           = $existing.CurrentBuild.Run
@@ -608,7 +574,6 @@ if (Test-Path $JsonHistoryPath) {
     }
 }
 
-# Full current build details
 $currentBuild = [ordered]@{
     Run           = $runNumber
     Timestamp     = $BuildStart.ToString("o")
@@ -641,12 +606,10 @@ $currentBuild = [ordered]@{
         PSVersion = $SysInfo.PSVersion
     }
 
-    # Shortened fields for history (used by future builds)
     InstallerSize = Format-FileSize $InstallerSize
     DistSize      = Format-FileSize $DistInventory.TotalSize
 }
 
-# Comparison with previous build (if available)
 if ($previousSizes.Count -gt 0) {
     $lastBuild = $previousSizes[$previousSizes.Count - 1]
     $currentBuild["PreviousBuild"] = [ordered]@{
@@ -667,7 +630,6 @@ $jsonOutput = [ordered]@{
 $jsonOutput | ConvertTo-Json -Depth 10 | Set-Content $JsonHistoryPath -Encoding UTF8
 Write-Success "Statistics saved  ->  $JsonHistoryPath  (run #$runNumber)"
 
-# Print comparison with previous build in the terminal
 if ($previousSizes.Count -gt 0) {
     $lastBuild = $previousSizes[$previousSizes.Count - 1]
     Write-Host ""

@@ -61,7 +61,7 @@ def _make_tm(language):
 class EnhancedTemplatesDialog(QDialog):
     """Enhanced dialog for template management"""
     
-    template_applied = Signal(dict)  # Signal emitted when a template is applied
+    template_applied = Signal(dict)
 
     def __init__(self, template_manager, parent=None, language="fr"):
         super().__init__(parent)
@@ -86,7 +86,7 @@ class EnhancedTemplatesDialog(QDialog):
 
         if dark:
             style = """
-            /* ── Base ── */
+            /* Base */
             QDialog, QWidget {
                 background-color: #0d1117;
                 color: #e6edf3;
@@ -94,7 +94,7 @@ class EnhancedTemplatesDialog(QDialog):
                 font-size: 13px;
             }
 
-            /* ── GroupBox ── */
+            /* GroupBox */
             QGroupBox {
                 font-weight: 700;
                 font-size: 13px;
@@ -112,10 +112,10 @@ class EnhancedTemplatesDialog(QDialog):
                 color: #8b949e;
             }
 
-            /* ── Label ── */
+            /* Label */
             QLabel { color: #e6edf3; background: transparent; }
 
-            /* ── Inputs ── */
+            /* Inputs */
             QLineEdit, QSpinBox, QTextEdit, QPlainTextEdit {
                 background-color: #0d1117;
                 color: #e6edf3;
@@ -128,7 +128,7 @@ class EnhancedTemplatesDialog(QDialog):
             QLineEdit:focus, QSpinBox:focus, QTextEdit:focus { border: 1px solid #388bfd; }
             QLineEdit:hover, QSpinBox:hover { border: 1px solid #484f58; }
 
-            /* ── ComboBox ── */
+            /* ComboBox */
             QComboBox {
                 background-color: #21262d;
                 color: #e6edf3;
@@ -158,7 +158,7 @@ class EnhancedTemplatesDialog(QDialog):
                 outline: none;
             }
 
-            /* ── ListWidget ── */
+            /* ListWidget */
             QListWidget {
                 background-color: #161b22;
                 color: #e6edf3;
@@ -179,7 +179,7 @@ class EnhancedTemplatesDialog(QDialog):
                 font-weight: 600;
             }
 
-            /* ── Buttons (defaut) ── */
+            /* Buttons (default) */
             QPushButton {
                 background-color: #21262d;
                 color: #c9d1d9;
@@ -197,7 +197,7 @@ class EnhancedTemplatesDialog(QDialog):
             QPushButton:pressed { background-color: #161b22; border-color: #6e7681; }
             QPushButton:disabled { background-color: #161b22; color: #484f58; border-color: #21262d; }
 
-            /* ── CheckBox ── */
+            /* CheckBox */
             QCheckBox, QRadioButton {
                 color: #e6edf3;
                 spacing: 8px;
@@ -215,13 +215,13 @@ class EnhancedTemplatesDialog(QDialog):
                 background-color: #388bfd; border-color: #388bfd;
             }
 
-            /* ── ScrollArea ── */
+            /* ScrollArea */
             QScrollArea, QScrollArea > QWidget, QScrollArea > QWidget > QWidget {
                 background-color: transparent;
                 border: none;
             }
 
-            /* ── Scrollbars ── */
+            /* Scrollbars */
             QScrollBar:vertical {
                 background: #0d1117; width: 8px; margin: 0; border: none;
             }
@@ -242,7 +242,7 @@ class EnhancedTemplatesDialog(QDialog):
                 background: transparent;
             }
 
-            /* ── Toolbar ── */
+            /* Toolbar */
             QToolBar {
                 background-color: #161b22;
                 border: none;
@@ -258,10 +258,10 @@ class EnhancedTemplatesDialog(QDialog):
             QToolBar QToolButton:hover   { background: #30363d; }
             QToolBar QToolButton:pressed { background: #21262d; }
 
-            /* ── Splitter ── */
+            /* Splitter */
             QSplitter::handle { background: #30363d; width: 1px; height: 1px; }
 
-            /* ── Menu ── */
+            /* Menu */
             QMenu {
                 background-color: #161b22; color: #e6edf3;
                 border: 1px solid #30363d; border-radius: 8px; padding: 4px;
@@ -270,14 +270,14 @@ class EnhancedTemplatesDialog(QDialog):
             QMenu::item:selected { background-color: #388bfd22; color: #79c0ff; }
             QMenu::separator { height: 1px; background: #30363d; margin: 4px 0; }
 
-            /* ── Tooltip ── */
+            /* Tooltip */
             QToolTip {
                 background-color: #1e2330; color: #e6edf3;
                 border: 1px solid #30363d; border-radius: 6px;
                 padding: 7px 10px; font-size: 12px;
             }
 
-            /* ── Table ── */
+            /* Table */
             QTableWidget {
                 background-color: #161b22; color: #e6edf3;
                 border: 1px solid #30363d; border-radius: 8px;
@@ -298,7 +298,7 @@ class EnhancedTemplatesDialog(QDialog):
             """
         else:
             style = """
-            /* ── Base ── */
+            /* Base */
             QDialog, QWidget {
                 background-color: #f6f8fa;
                 color: #1f2328;
@@ -306,7 +306,7 @@ class EnhancedTemplatesDialog(QDialog):
                 font-size: 13px;
             }
 
-            /* ── GroupBox ── */
+            /* GroupBox */
             QGroupBox {
                 font-weight: 700;
                 font-size: 13px;
@@ -324,10 +324,10 @@ class EnhancedTemplatesDialog(QDialog):
                 color: #57606a;
             }
 
-            /* ── Label ── */
+            /* Label */
             QLabel { color: #1f2328; background: transparent; }
 
-            /* ── Inputs ── */
+            /* Inputs */
             QLineEdit, QSpinBox, QTextEdit, QPlainTextEdit {
                 background-color: #ffffff;
                 color: #1f2328;
@@ -341,7 +341,7 @@ class EnhancedTemplatesDialog(QDialog):
             QLineEdit:focus, QSpinBox:focus, QTextEdit:focus { border: 1px solid #0969da; }
             QLineEdit:hover, QSpinBox:hover { border: 1px solid #8c959f; }
 
-            /* ── ComboBox ── */
+            /* ComboBox */
             QComboBox {
                 background-color: #ffffff;
                 color: #1f2328;
@@ -371,7 +371,7 @@ class EnhancedTemplatesDialog(QDialog):
                 outline: none;
             }
 
-            /* ── ListWidget ── */
+            /* ListWidget */
             QListWidget {
                 background-color: #ffffff;
                 color: #1f2328;
@@ -392,7 +392,7 @@ class EnhancedTemplatesDialog(QDialog):
                 font-weight: 600;
             }
 
-            /* ── Buttons (defaut) ── */
+            /* Buttons (default) */
             QPushButton {
                 background-color: #0969da;
                 color: #ffffff;
@@ -406,7 +406,7 @@ class EnhancedTemplatesDialog(QDialog):
             QPushButton:pressed { background-color: #0757ba; }
             QPushButton:disabled { background-color: #d0d7de; color: #8c959f; }
 
-            /* ── CheckBox ── */
+            /* CheckBox */
             QCheckBox, QRadioButton {
                 color: #1f2328;
                 spacing: 8px;
@@ -424,13 +424,13 @@ class EnhancedTemplatesDialog(QDialog):
                 background-color: #0969da; border-color: #0969da;
             }
 
-            /* ── ScrollArea ── */
+            /* ScrollArea */
             QScrollArea, QScrollArea > QWidget, QScrollArea > QWidget > QWidget {
                 background-color: transparent;
                 border: none;
             }
 
-            /* ── Scrollbars ── */
+            /* Scrollbars */
             QScrollBar:vertical {
                 background: #f6f8fa; width: 8px; margin: 0; border: none;
             }
@@ -451,7 +451,7 @@ class EnhancedTemplatesDialog(QDialog):
                 background: transparent;
             }
 
-            /* ── Toolbar ── */
+            /* Toolbar */
             QToolBar {
                 background-color: #eaeef2;
                 border: none;
@@ -467,10 +467,10 @@ class EnhancedTemplatesDialog(QDialog):
             QToolBar QToolButton:hover   { background: #d0d7de; }
             QToolBar QToolButton:pressed { background: #b8c0cc; }
 
-            /* ── Splitter ── */
+            /* Splitter */
             QSplitter::handle { background: #d0d7de; width: 1px; height: 1px; }
 
-            /* ── Menu ── */
+            /* Menu */
             QMenu {
                 background-color: #ffffff; color: #1f2328;
                 border: 1px solid #d0d7de; border-radius: 8px; padding: 4px;
@@ -479,14 +479,14 @@ class EnhancedTemplatesDialog(QDialog):
             QMenu::item:selected { background-color: #0969da18; color: #0550ae; }
             QMenu::separator { height: 1px; background: #d0d7de; margin: 4px 0; }
 
-            /* ── Tooltip ── */
+            /* Tooltip */
             QToolTip {
                 background-color: #1f2328; color: #f0f6fc;
                 border: none; border-radius: 6px;
                 padding: 7px 10px; font-size: 12px;
             }
 
-            /* ── Table ── */
+            /* Table */
             QTableWidget {
                 background-color: #ffffff; color: #1f2328;
                 border: 1px solid #d0d7de; border-radius: 8px;
@@ -509,16 +509,13 @@ class EnhancedTemplatesDialog(QDialog):
 
         self.setStyleSheet(style)
 
-        # Update theme-dependent inline styles
         self._refresh_inline_styles(dark)
 
     def _refresh_inline_styles(self, dark: bool):
         """Re-apply inline styles that depend on the current theme."""
         if dark:
-            # Details header
             self.details_header.setStyleSheet(
                 "font-size: 16px; font-weight: bold; margin-bottom: 15px; color: #e6edf3;")
-            # Main action buttons
             self.apply_btn.setStyleSheet("""
                 QPushButton { background-color: #238636; color: #ffffff;
                     border: 1px solid #2ea043; border-radius: 7px;
@@ -689,7 +686,6 @@ class EnhancedTemplatesDialog(QDialog):
                                 self.translate_text("Veuillez entrer un nom pour le template."))
                 return
             
-            # Create template
             config = self.template_manager.create_template_from_current_settings(name, template_type, self.parent_window)
             
             if config:
@@ -991,7 +987,6 @@ class EnhancedTemplatesDialog(QDialog):
         header_text = f"⭐ {template['name']}" if is_default else f"📋 {template['name']}"
         self.details_header.setText(header_text)
 
-        # "Set / Remove default" button
         self._default_btn = QPushButton(
             self.translate_text("✅ Template par défaut — Retirer") if is_default
             else self.translate_text("⭐ Définir comme template par défaut")
@@ -1058,7 +1053,6 @@ class EnhancedTemplatesDialog(QDialog):
 
     def format_config_for_display(self, config, template_type):
         """Format the configuration for display — comparison uses normalized type (French canonical)."""
-        # Theme-based styling
         _dark = hasattr(self.parent_window, 'dark_mode') and self.parent_window.dark_mode
         if _dark:
             style = ("color: #c9d1d9; background-color: #161b22; padding: 10px;"
@@ -1067,22 +1061,18 @@ class EnhancedTemplatesDialog(QDialog):
             style = ("color: #1f2328; background-color: #f6f8fa; padding: 10px;"
                      "border: 1px solid #d0d7de; border-radius: 6px;")
 
-        # Normalize to canonical French type regardless of stored language
         t = TemplateManager.normalize_type(template_type)
 
-        # Helpers
         oui = self.translate_text("Oui")
         non = self.translate_text("Non")
         ns  = self.translate_text("Non spécifié")
 
-        # Translate a stored value (always stored in French) to current language
         def tv(val, fallback=None):
             if val is None:
                 return fallback if fallback is not None else ns
             translated = self.translate_text(str(val))
             return translated if translated else str(val)
 
-        # Translate {heure} placeholder in filename templates based on language
         def translate_name_template(tpl):
             if not tpl:
                 return tpl
@@ -1216,7 +1206,6 @@ class EnhancedTemplatesDialog(QDialog):
         ext_filter = self.get_file_extensions_for_template(t_type)
         compatible = self.get_compatible_files(t_type)
 
-        # Apply the settings
         success = self.template_manager.apply_template(template_id, self.parent_window)
         if not success:
             QMessageBox.warning(self, self.translate_text("Erreur"),
@@ -1226,7 +1215,6 @@ class EnhancedTemplatesDialog(QDialog):
         self.template_applied.emit(template)
         self.load_templates()
 
-        # Achievement tracking
         ach = self._ach()
         if ach:
             try:
@@ -1256,7 +1244,7 @@ class EnhancedTemplatesDialog(QDialog):
 
         btn_row = QHBoxLayout()
 
-        pw = self.parent_window  # capturer avant close()
+        pw = self.parent_window
 
         _dark_at = hasattr(self.parent_window, 'dark_mode') and self.parent_window.dark_mode
         _ss_green = (
@@ -1294,7 +1282,6 @@ class EnhancedTemplatesDialog(QDialog):
             def _use_current():
                 dialog.accept()
                 self.close()
-                # Launch after dialogs are closed
                 QTimer.singleShot(0, lambda: self._launch_operation(t_type))
             btn_current.clicked.connect(_use_current)
             btn_row.addWidget(btn_current)
@@ -1507,7 +1494,6 @@ class EnhancedTemplatesDialog(QDialog):
         if not selected_items:
             return
 
-        # Retrieve the selected IDs
         template_ids = []
         for item in selected_items:
             tid = item.data(Qt.UserRole)
@@ -1517,7 +1503,6 @@ class EnhancedTemplatesDialog(QDialog):
         if not template_ids:
             return
 
-        # Confirmation
         count = len(template_ids)
         if count == 1:
             template = self.template_manager.get_template_by_id(template_ids[0])
@@ -1561,19 +1546,16 @@ class EnhancedTemplatesDialog(QDialog):
         if not template:
             return
 
-        # Create a custom QMessageBox instance
         msg_box = QMessageBox(self)
         msg_box.setWindowTitle(self.translate_text("Confirmation"))
         template_name = template['name']
         msg_box.setText(self.translate_text("template_deleted").format(template_name))
         msg_box.setIcon(QMessageBox.Question)
 
-        # Create custom buttons
         yes_button = msg_box.addButton(QMessageBox.Yes)
         no_button = msg_box.addButton(QMessageBox.No)
         msg_box.setDefaultButton(no_button)
 
-        # Apply CSS styles directly to buttons
         yes_button.setStyleSheet("""
             QPushButton {
                 background-color: #28a745;
@@ -1607,7 +1589,6 @@ class EnhancedTemplatesDialog(QDialog):
             }
         """)
 
-        # Display and wait for the response
         msg_box.exec()
 
         if msg_box.clickedButton() == yes_button:
@@ -1680,14 +1661,12 @@ class EnhancedTemplatesDialog(QDialog):
             return
         currently_default = template['config'].get('is_default', False)
         if currently_default:
-            # Remove default: just unset this one
             template['config']['is_default'] = False
             import json
             self.template_manager.db_manager.update_template_config(
                 template_id, json.dumps(template['config']))
             self.template_manager.load_templates()
         else:
-            # Set as default (unsets others of the same type)
             self.template_manager.set_default_template(template_id, template_type)
 
         ach = self._ach()
@@ -1696,7 +1675,6 @@ class EnhancedTemplatesDialog(QDialog):
             except Exception: pass
 
         self.load_templates()
-        # Re-select the same item
         for i in range(self.templates_list.count()):
             if self.templates_list.item(i).data(Qt.UserRole) == template_id:
                 self.templates_list.setCurrentRow(i)
@@ -1727,14 +1705,11 @@ class CreateTemplateDialog(QDialog):
     def setup_ui(self):
         layout = QVBoxLayout(self)
         
-        # Creation form
         form_layout = QFormLayout()
         
-        # Template name
         self.name_input = QLineEdit()
         self.name_input.setPlaceholderText(self.parent_dialog.translate_text("ex: Conversion Haute Qualité"))
         
-        # Template type
         self.type_combo = QComboBox()
         self.type_combo.addItems([
             self.parent_dialog.translate_text("Conversion PDF→Word"),
@@ -1752,7 +1727,6 @@ class CreateTemplateDialog(QDialog):
         form_layout.addRow(self.parent_dialog.translate_text("Nom du template:"), self.name_input)
         form_layout.addRow(self.parent_dialog.translate_text("Type de template:"), self.type_combo)
         
-        # Configuration Area
         self.config_widget = QWidget()
         self.config_layout = QVBoxLayout(self.config_widget)
         
@@ -1760,7 +1734,6 @@ class CreateTemplateDialog(QDialog):
         
         layout.addLayout(form_layout)
         
-        # Advanced options
         self.advanced_group = QGroupBox(self.parent_dialog.translate_text("Options avancées"))
         advanced_layout = QVBoxLayout(self.advanced_group)
         
@@ -1781,7 +1754,6 @@ class CreateTemplateDialog(QDialog):
         layout.addWidget(self.advanced_group)
         layout.addStretch()
         
-        # Buttons
         button_layout = QHBoxLayout()
         
         create_btn = QPushButton("💾 " + self.parent_dialog.translate_text("Créer le template"))
@@ -1796,7 +1768,6 @@ class CreateTemplateDialog(QDialog):
         
         layout.addLayout(button_layout)
         
-        # Initialize the creation form
         self.update_config_form()
     
     def create_images_to_pdf_config(self):
@@ -1833,7 +1804,6 @@ class CreateTemplateDialog(QDialog):
         self.config_layout.setContentsMargins(0, 4, 0, 4)
         self.config_layout.setSpacing(4)
 
-        # Archive format
         format_label = QLabel(self.parent_dialog.translate_text("Format d'archive:"))
 
         self.compression_format_combo = QComboBox()
@@ -1846,7 +1816,6 @@ class CreateTemplateDialog(QDialog):
         self.compression_format_combo.setMinimumHeight(30)
         self.compression_format_combo.setMaximumHeight(35)
 
-        # Compression level
         level_label = QLabel(self.parent_dialog.translate_text("Niveau de compression:"))
         self.compression_level_combo = QComboBox()
         self.compression_level_combo.addItems([
@@ -1875,29 +1844,24 @@ class CreateTemplateDialog(QDialog):
 
         self.split_check.stateChanged.connect(lambda state: self.split_size_spin.setEnabled(state))
 
-        # — Format block
         self.config_layout.addWidget(format_label)
         self.config_layout.addWidget(self.compression_format_combo)
         self.config_layout.addSpacing(8)
 
-        # — Level block
         self.config_layout.addWidget(level_label)
         self.config_layout.addWidget(self.compression_level_combo)
         self.config_layout.addSpacing(8)
 
-        # — Checkboxes block
         self.config_layout.addWidget(self.encrypt_check)
         self.config_layout.addWidget(self.delete_originals_check)
         self.config_layout.addWidget(self.split_check)
         self.config_layout.addSpacing(8)
 
-        # — Split size block
         self.config_layout.addWidget(split_size_label)
         self.config_layout.addWidget(self.split_size_spin)
 
     def update_config_form(self):
         """Update the configuration form based on the template type"""
-        # Clear configuration area
         while self.config_layout.count():
             item = self.config_layout.takeAt(0)
             if item.widget():
@@ -1993,7 +1957,6 @@ class CreateTemplateDialog(QDialog):
 
     def create_word_to_pdf_config(self):
         """Create the configuration form for Word to PDF"""
-        # Mode — matches exactly the options in the conversion dialog
         mode_label = QLabel(self.parent_dialog.translate_text("Mode de conversion:"))
         self.word_mode_combo = QComboBox()
         self.word_mode_combo.addItems([
@@ -2001,7 +1964,6 @@ class CreateTemplateDialog(QDialog):
             self.parent_dialog.translate_text("Texte uniquement"),
         ])
 
-        # Quality
         quality_label = QLabel(self.parent_dialog.translate_text("Qualité d'image:"))
         self.image_quality_combo = QComboBox()
         self.image_quality_combo.addItems([
@@ -2010,7 +1972,6 @@ class CreateTemplateDialog(QDialog):
             self.parent_dialog.translate_text("Basse (72 DPI)"),
         ])
 
-        # Options
         self.include_metadata_check = AnimatedCheckBox(
             self.parent_dialog.translate_text("Inclure les métadonnées"))
         self.include_metadata_check.setChecked(True)
@@ -2052,7 +2013,6 @@ class CreateTemplateDialog(QDialog):
         """Create the configuration form for office optimization presets"""
         tr = self.parent_dialog.translate_text
 
-        # Optimization mode
         self.config_layout.addWidget(QLabel(tr("Mode d'optimisation")))
         self.optim_mode_combo = QComboBox()
         self.optim_mode_combo.addItems([
@@ -2063,7 +2023,6 @@ class CreateTemplateDialog(QDialog):
         self.optim_mode_combo.setCurrentIndex(2)
         self.config_layout.addWidget(self.optim_mode_combo)
 
-        # Compression level
         self.config_layout.addWidget(QLabel(tr("Niveau de compression")))
         self.optim_quality_combo = QComboBox()
         self.optim_quality_combo.addItems([
@@ -2074,7 +2033,6 @@ class CreateTemplateDialog(QDialog):
         self.optim_quality_combo.setCurrentIndex(1)
         self.config_layout.addWidget(self.optim_quality_combo)
 
-        # Options
         self.config_layout.addWidget(QLabel(tr("Options")))
         from PySide6.QtWidgets import QCheckBox as _QCB
         self.optim_metadata_check = _QCB(tr("Supprimer les métadonnées personnelles"))
@@ -2100,7 +2058,6 @@ class CreateTemplateDialog(QDialog):
         
         template_type = self.type_combo.currentText()
         
-        # Retrieve configuration according to type
         config_data = {}
         
         if template_type == self.parent_dialog.translate_text("Conversion PDF→Word"):
@@ -2163,7 +2120,6 @@ class CreateTemplateDialog(QDialog):
                 'keep_backup':       self.optim_backup_check.isChecked(),
             }
         
-        # "Remember for next time" option
         if self.memorize_check.isChecked() and hasattr(self.parent_app, 'config'):
             self.parent_app.config['last_template_creation_params'] = {
                 'memorize': True, 'type': template_type,
@@ -2179,15 +2135,12 @@ class CreateTemplateDialog(QDialog):
             except Exception:
                 pass
 
-        # "Set as default template" option
         if self.set_as_default_check.isChecked():
             config_data['is_default'] = True
 
-        # Save template
         self.template_manager.db_manager.save_template(name, template_type, config_data)
         self.template_manager.load_templates()
 
-        # Find the new id and register it as default
         if self.set_as_default_check.isChecked():
             new_id = None
             for tid, tpl in self.template_manager.current_templates.items():
@@ -2205,7 +2158,6 @@ class CreateTemplateDialog(QDialog):
             self.parent_dialog.translate_text("template_created").format(name)
         )
 
-        # Achievement tracking
         ach = getattr(self.parent_app, 'achievement_system', None)
         if ach:
             try: ach.record_template_created(template_type)
@@ -2229,7 +2181,6 @@ class TemplateEditorDialog(QDialog):
     def setup_ui(self):
         layout = QVBoxLayout(self)
         
-        # General information
         info_group = QGroupBox(self.parent_dialog.translate_text("Informations"))
         info_layout = QFormLayout(info_group)
         
@@ -2241,7 +2192,6 @@ class TemplateEditorDialog(QDialog):
         
         layout.addWidget(info_group)
         
-        # Configuration (read-only display for now)
         config_group = QGroupBox(self.parent_dialog.translate_text("Configuration"))
         config_layout = QVBoxLayout(config_group)
         
@@ -2254,7 +2204,6 @@ class TemplateEditorDialog(QDialog):
         
         config_layout.addWidget(config_label)
         
-        # Editing note
         note_label = QLabel(
             self.parent_dialog.translate_text("Note: L'édition avancée de la configuration sera disponible dans une future version.")
         )
@@ -2264,7 +2213,6 @@ class TemplateEditorDialog(QDialog):
         layout.addWidget(config_group)
         layout.addStretch()
         
-        # Buttons
         button_layout = QHBoxLayout()
         
         save_btn = QPushButton("💾 " + self.parent_dialog.translate_text("Sauvegarder les modifications"))
@@ -2282,5 +2230,4 @@ class TemplateEditorDialog(QDialog):
     def get_updated_config(self):
         """Return the updated configuration"""
         # For now, the only modification is: the name
-        # In a future version, we could allow editing the config
         return self.template['config']

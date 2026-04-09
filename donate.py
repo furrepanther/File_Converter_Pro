@@ -23,13 +23,8 @@ from pathlib import Path
 import logging
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
-#  PAYPAL LINK  —  replace with your own (this one is mine)
 PAYPAL_LINK = "https://www.paypal.com/donate/?hosted_button_id=GLKSMC6SYBFHG"
 
-#  Donor flag file,  written when PayPal is opened,
-#  read on next launch to show the Thank You dialog.
-#  config_dir must be the same folder as file_converter_config.dat
-#  so the flag survives across sessions regardless of install path.
 def _donor_flag_path(config_dir: str | None = None) -> Path:
     """
     Returns the path to donor_pending.json.
@@ -41,7 +36,7 @@ def _donor_flag_path(config_dir: str | None = None) -> Path:
         return Path(config_dir) / "donor_pending.json"
     try:
         import sys
-        sys._MEIPASS  # raises AttributeError in dev
+        sys._MEIPASS
         return Path(os.environ.get("APPDATA", Path.home())) / "FileConverterPro" / "donor_pending.json"
     except AttributeError:
         return Path(__file__).parent / "donor_pending.json"
@@ -55,7 +50,6 @@ def mark_donor_pending(amount: str, config_dir: str | None = None):
         
         current_total = 0.0
         
-        # 1. Try to read existing data
         if path.exists():
             try:
                 old_data = json.loads(path.read_text(encoding="utf-8"))
@@ -63,24 +57,20 @@ def mark_donor_pending(amount: str, config_dir: str | None = None):
             except (ValueError, json.JSONDecodeError):
                 current_total = 0.0
 
-        # 2. Add the new donation
         try:
             new_amount = float(amount.replace(",", "."))
             total = current_total + new_amount
         except ValueError:
             total = current_total
 
-        # 3. Format cleanly (e.g., "30" instead of "30.0")
         str_total = f"{total:.2f}".rstrip("0").rstrip(".")
 
-        # 4. Write the new total
         path.write_text(
             json.dumps({"amount": str_total, "ts": __import__("time").time()}),
             encoding="utf-8"
         )
     except Exception as e:
         print(f"Error while updating donor flag: {e}") 
-
 
 def pop_donor_flag(config_dir: str | None = None) -> dict | None:
     """Read and delete the donor flag. Returns data dict or None."""
@@ -94,14 +84,13 @@ def pop_donor_flag(config_dir: str | None = None) -> dict | None:
     except Exception:
         return None
 
-#  Per-pill color palette  (border_rgba, text_hex, sel_start, sel_end)
 
 PILL_COLORS_DARK = [
-    ("rgba(255,80,120,0.40)",  "#ff8aaa", "#ff4a7d", "#c0226a"),   # 1€  — pink
-    ("rgba(255,140,60,0.40)",  "#ffaa70", "#ff8c28", "#c05010"),   # 3€  — orange
-    ("rgba(160,80,255,0.40)",  "#c080ff", "#9040f0", "#5010c0"),   # 5€  — violet
-    ("rgba(60,200,120,0.40)",  "#60e090", "#28c060", "#108040"),   # 10€ — green
-    ("rgba(60,160,255,0.40)",  "#70c0ff", "#2880e0", "#0840a0"),   # 20€ — blue
+    ("rgba(255,80,120,0.40)",  "#ff8aaa", "#ff4a7d", "#c0226a"),
+    ("rgba(255,140,60,0.40)",  "#ffaa70", "#ff8c28", "#c05010"),
+    ("rgba(160,80,255,0.40)",  "#c080ff", "#9040f0", "#5010c0"),
+    ("rgba(60,200,120,0.40)",  "#60e090", "#28c060", "#108040"),
+    ("rgba(60,160,255,0.40)",  "#70c0ff", "#2880e0", "#0840a0"),
 ]
 
 PILL_COLORS_LIGHT = [
@@ -112,7 +101,6 @@ PILL_COLORS_LIGHT = [
     ("rgba(30,120,210,0.35)",  "#1060c0", "#1870d0", "#0840a0"),
 ]
 
-#  Floating heart particle
 
 class HeartParticle:
     COLORS_DARK = [
@@ -168,8 +156,6 @@ class HeartParticle:
         painter.restore()
 
 
-#  Animated heart canvas  (no QGraphicsEffect — painter-safe)
-
 class HeartCanvas(QWidget):
     def __init__(self, dark_mode=True, parent=None):
         super().__init__(parent)
@@ -209,8 +195,6 @@ class HeartCanvas(QWidget):
     def set_dark_mode(self, dark):
         self.dark_mode = dark
 
-
-#  Pulsing big heart  (no QGraphicsEffect — painter-safe)
 
 class BigHeartWidget(QWidget):
     def __init__(self, dark_mode=True, parent=None):
@@ -282,8 +266,6 @@ class BigHeartWidget(QWidget):
         self.dark_mode = dark
 
 
-#  Donation amount pill — each with its own color
-
 class AmountPill(QPushButton):
     def __init__(self, label, color_idx, dark_mode=True, parent=None):
         super().__init__(label, parent)
@@ -339,8 +321,6 @@ class AmountPill(QPushButton):
         self._apply_style()
 
 
-#  Main Donate Dialog
-
 class DonateDialog(QDialog):
     """Beautiful animated donation dialog with PayPal integration."""
 
@@ -351,7 +331,7 @@ class DonateDialog(QDialog):
         super().__init__(parent)
         self.dark_mode = dark_mode
         self.language = language
-        self._config_dir = config_dir  # passed to mark_donor_pending
+        self._config_dir = config_dir
         self._selected_amount = "5"
         self._pills = []
 
@@ -364,27 +344,22 @@ class DonateDialog(QDialog):
         self._build_ui()
         self._apply_theme()
 
-        # Fade-in via windowOpacity — safe, no QGraphicsEffect on dialog
-        # (QGraphicsEffect on a dialog conflicts with custom-painted children)
         self.setWindowOpacity(0.0)
         self._opacity = 0.0
         self._fade_timer = QTimer(self)
         self._fade_timer.timeout.connect(self._fade_step)
         QTimer.singleShot(40, self._fade_timer.start)
 
-        # PayPal pulse — pure stylesheet swap, zero QGraphicsEffect
         self._pulse_timer = QTimer(self)
         self._pulse_timer.timeout.connect(self._pulse_paypal)
         self._pulse_timer.start(2000)
 
-    # ── Fade-in (painter-safe)
     def _fade_step(self):
         self._opacity = min(1.0, self._opacity + 0.06)
         self.setWindowOpacity(self._opacity)
         if self._opacity >= 1.0:
             self._fade_timer.stop()
 
-    # ── PayPal pulse via stylesheet swap (no QGraphicsEffect)
     def _pulse_paypal(self):
         self._set_paypal_style(bright=False)
         QTimer.singleShot(380, lambda: self._set_paypal_style(bright=True))
@@ -454,13 +429,11 @@ class DonateDialog(QDialog):
                 """
         self.paypal_btn.setStyleSheet(css)
 
-    # ── UI build
     def _build_ui(self):
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # ── Header ──
         self.header = QWidget()
         self.header.setFixedHeight(200)
         self.header.setObjectName("DonateHeader")
@@ -482,7 +455,6 @@ class DonateDialog(QDialog):
 
         root.addWidget(self.header)
 
-        # ── Body
         self.body = QWidget()
         self.body.setObjectName("DonateBody")
         body_lay = QVBoxLayout(self.body)
@@ -521,13 +493,10 @@ class DonateDialog(QDialog):
             pills_row.addWidget(pill)
         body_lay.addLayout(pills_row)
 
-        # ── Custom amount input
-        # Container: QLineEdit + € label overlaid on the left inside the field
         custom_row = QHBoxLayout()
         custom_row.setAlignment(Qt.AlignCenter)
         custom_row.setSpacing(0)
 
-        # Outer container that mimics the input border
         self._custom_container = QWidget()
         self._custom_container.setObjectName("DonateCustomContainer")
         self._custom_container.setFixedSize(180, 38)
@@ -545,11 +514,8 @@ class DonateDialog(QDialog):
         self._custom_input.setObjectName("DonateCustomInput")
         self._custom_input.setPlaceholderText("Custom...")
         self._custom_input.setAlignment(Qt.AlignCenter)
-        self._custom_input.setFrame(False)  # no inner border — container handles it
+        self._custom_input.setFrame(False)
 
-        # Validator: accept digits + exactly one separator (. or ,)
-        # QDoubleValidator is locale-dependent so we use a QRegularExpressionValidator
-        # to allow both '.' and ',' on any system, then parse manually.
         from PySide6.QtCore import QRegularExpression
         from PySide6.QtGui import QRegularExpressionValidator
         rx = QRegularExpression(r'^\d{0,4}([.,]\d{0,2})?$')
@@ -625,10 +591,8 @@ class DonateDialog(QDialog):
 
     def _on_custom_edited(self, text: str):
         """Called when the user types in the custom amount field."""
-        # Deselect all pills
         for _, pill in self._pills:
             pill.set_selected(False)
-        # Validate: must be a positive number ≤ 9999
         try:
             value = float(text.replace(",", "."))
             if value > 0:
@@ -664,7 +628,6 @@ class DonateDialog(QDialog):
             query["amount"] = [str(amount)]
             url = urlunparse(parsed._replace(query=urlencode(query, doseq=True)))
 
-            # Open Browser + UX feedback
             if webbrowser.open(url):
                 self.paypal_btn.setText(" Redirection... ")
                 self.paypal_btn.setEnabled(False)
@@ -678,12 +641,10 @@ class DonateDialog(QDialog):
             QMessageBox.critical(self, "Redirection Error", f"Unable to open Paypal page.\n\nDetail: {e}")
             self._reset_paypal_btn()
 
-    # Reset button appearance
     def _reset_paypal_btn(self):
         self.paypal_btn.setText("  Donate with PayPal  ❤️")
         self.paypal_btn.setEnabled(True)
 
-    # ── Theme
     def _apply_theme(self):
         if self.dark_mode:
             self._apply_dark()
@@ -817,8 +778,6 @@ class DonateDialog(QDialog):
             self.heart_canvas.setGeometry(0, 100, self.header.width(), 90)
 
 
-#  Thank You Dialog  —  shown on next launch after a donation
-
 class StarParticle:
     """Tiny twinkling star for the thank-you animation."""
     def __init__(self, w, h):
@@ -846,15 +805,14 @@ class StarParticle:
         painter.setPen(Qt.NoPen)
         s = self.size
         cx, cy = self.x, self.y
-        # Draw a small 4-point star
         path = QPainterPath()
-        path.moveTo(cx,        cy - s)
+        path.moveTo(cx, cy - s)
         path.lineTo(cx + s*0.3, cy - s*0.3)
-        path.lineTo(cx + s,     cy)
+        path.lineTo(cx + s, cy)
         path.lineTo(cx + s*0.3, cy + s*0.3)
-        path.lineTo(cx,         cy + s)
+        path.lineTo(cx, cy + s)
         path.lineTo(cx - s*0.3, cy + s*0.3)
-        path.lineTo(cx - s,     cy)
+        path.lineTo(cx - s, cy)
         path.lineTo(cx - s*0.3, cy - s*0.3)
         path.closeSubpath()
         painter.drawPath(path)
@@ -908,10 +866,6 @@ class ThankYouDialog(QDialog):
     Usage (in your main window __init__ or show event):
         from donate import pop_donor_flag, ThankYouDialog
         data = pop_donor_flag()
-        if data:
-            dlg = ThankYouDialog(parent=self, dark_mode=self.dark_mode,
-                                 amount=data.get("amount", ""))
-            dlg.exec()
     """
 
     def __init__(self, parent=None, dark_mode=True, amount=""):
@@ -927,34 +881,29 @@ class ThankYouDialog(QDialog):
         self._build_ui()
         self._apply_theme()
 
-        # Fade-in
         self.setWindowOpacity(0.0)
         self._opacity = 0.0
         self._fade_t = QTimer(self)
         self._fade_t.timeout.connect(self._fade_step)
         QTimer.singleShot(40, self._fade_t.start)
 
-    # ── Fade-in
     def _fade_step(self):
         self._opacity = min(1.0, self._opacity + 0.055)
         self.setWindowOpacity(self._opacity)
         if self._opacity >= 1.0:
             self._fade_t.stop()
 
-    # ── UI
     def _build_ui(self):
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # Header with animation canvas
         self.header = QWidget()
         self.header.setFixedHeight(160)
         self.header.setObjectName("TYHeader")
         header_lay = QVBoxLayout(self.header)
         header_lay.setContentsMargins(0, 0, 0, 0)
 
-        # Big animated heart centered
         heart_row = QHBoxLayout()
         heart_row.setAlignment(Qt.AlignCenter)
         self.big_heart = BigHeartWidget(self.dark_mode)
@@ -963,27 +912,23 @@ class ThankYouDialog(QDialog):
         header_lay.addLayout(heart_row)
         header_lay.addStretch()
 
-        # Floating canvas on top
         self.canvas = ThankYouCanvas(self.dark_mode)
         self.canvas.setParent(self.header)
         self.canvas.setGeometry(0, 0, 460, 160)
 
         root.addWidget(self.header)
 
-        # Body
         body = QWidget()
         body.setObjectName("TYBody")
         body_lay = QVBoxLayout(body)
         body_lay.setContentsMargins(32, 24, 32, 28)
         body_lay.setSpacing(14)
 
-        # Title
         title = QLabel("Thank you so much! 🌟")
         title.setAlignment(Qt.AlignCenter)
         title.setObjectName("TYTitle")
         body_lay.addWidget(title)
 
-        # Amount badge (optional)
         if self.amount:
             badge_row = QHBoxLayout()
             badge_row.setAlignment(Qt.AlignCenter)
@@ -993,7 +938,6 @@ class ThankYouDialog(QDialog):
             badge_row.addWidget(badge)
             body_lay.addLayout(badge_row)
 
-        # Message
         msg_text = (
             "Your generosity truly makes a difference. "
             "Every contribution helps keep File Converter Pro "
@@ -1007,14 +951,12 @@ class ThankYouDialog(QDialog):
         msg.setObjectName("TYMsg")
         body_lay.addWidget(msg)
 
-        # Divider
         line = QFrame()
         line.setFrameShape(QFrame.HLine)
         line.setFixedHeight(1)
         line.setObjectName("TYDivider")
         body_lay.addWidget(line)
 
-        # Close button
         close_btn = QPushButton("Continue  ✨")
         close_btn.setObjectName("TYClose")
         close_btn.setCursor(QCursor(Qt.PointingHandCursor))
@@ -1024,7 +966,6 @@ class ThankYouDialog(QDialog):
 
         root.addWidget(body)
 
-    # ── Theme
     def _apply_theme(self):
         if self.dark_mode:
             self._apply_dark()
@@ -1122,7 +1063,6 @@ class ThankYouDialog(QDialog):
             self.canvas.setGeometry(0, 0, self.header.width(), 160)
 
 
-#  Standalone test
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     # Test ThankYouDialog directly

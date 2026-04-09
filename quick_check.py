@@ -20,11 +20,6 @@ if getattr(sys, 'frozen', False):
 else:
     BASE_DIR = Path(__file__).parent
 
-
-
-#  CHECK DEFINITIONS  (label, rel_path, type)
-#  type = 'file' | 'dir'
-
 CHECKS_CORE = [
     ("Main executable",               "File Converter Pro.exe",                        "file"),
     ("icon.ico",                      "_internal/icon.ico",                            "file"),
@@ -152,7 +147,6 @@ class QuickCheckApp:
         root.minsize(760, 500)
         root.configure(bg=self.theme["bg"])
 
-        # Icône fenêtre + barre des tâches Windows
         try:
             import ctypes
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
@@ -163,7 +157,7 @@ class QuickCheckApp:
         try:
             ico = BASE_DIR / "_internal" / "icon.ico"
             if not ico.exists():
-                ico = BASE_DIR / "icon.ico"  # fallback dev
+                ico = BASE_DIR / "icon.ico"
             if ico.exists():
                 root.iconbitmap(str(ico))
                 root.wm_iconbitmap(str(ico))
@@ -174,11 +168,9 @@ class QuickCheckApp:
         self._apply_theme()
         root.after(300, self._start_check)
 
-    # Build
     def _build_ui(self):
         t = self.theme
 
-        # Header
         self._hdr = tk.Frame(self.root, bg=t["bg"])
         self._hdr.pack(fill="x", padx=20, pady=(16, 0))
 
@@ -206,7 +198,6 @@ class QuickCheckApp:
                                     command=self._toggle_theme)
         self.toggle_btn.pack(side="left")
 
-        # Status bar
         self.status_frame = tk.Frame(self.root, bg=t["surface"],
                                      highlightbackground=t["border"], highlightthickness=1)
         self.status_frame.pack(fill="x", padx=20, pady=10)
@@ -220,7 +211,6 @@ class QuickCheckApp:
                                          font=("Segoe UI", 9), bg=t["surface"], fg=t["text_dim"])
         self.status_count_lbl.pack(side="right", padx=14, pady=8)
 
-        # Notebook (tabs)
         style = ttk.Style()
         self._style = style
         self.notebook = ttk.Notebook(self.root)
@@ -293,7 +283,6 @@ class QuickCheckApp:
                     "inner":      inner,
                 }
 
-        # Close button (hidden initially)
         self.close_btn = tk.Button(self.root, text="Close",
                                    font=("Segoe UI", 10, "bold"),
                                    bg=t["surface"], fg=t["text"],
@@ -309,7 +298,6 @@ class QuickCheckApp:
                 c.yview_scroll(int(-1 * (event.delta / 120)), "units")
         self.root.bind_all("<MouseWheel>", _on_mousewheel)
 
-    # Theme
     def _apply_theme(self):
         t = self.theme
         self.root.configure(bg=t["bg"])
@@ -341,12 +329,10 @@ class QuickCheckApp:
               foreground=[("selected", t["text"])],
               expand=[("selected", [1, 1, 1, 0])])
 
-        # Repaint tab outer frames, canvases and inner frames
         for group_name, outer in self._tab_frames.items():
             outer.configure(bg=t["surface"])
         for group_name, canvas in self._canvases.items():
             canvas.configure(bg=t["surface"])
-            # inner frame sits inside the canvas window — reach it via rows
             for r in self.rows.values():
                 if r["group"] == group_name:
                     r["inner"].configure(bg=t["surface"])
@@ -368,7 +354,6 @@ class QuickCheckApp:
         self.theme = DARK if self.dark else LIGHT
         self._apply_theme()
 
-    # Row helpers
     def _reset_row(self, path: str):
         t = self.theme
         r = self.rows[path]
@@ -396,7 +381,6 @@ class QuickCheckApp:
         r["path_lbl"].configure(fg=t["text_dim"] if ok else color)
         r["detail_lbl"].configure(fg=color)
 
-    # Worker thread
     def _start_check(self):
         if self._running:
             return

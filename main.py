@@ -29,12 +29,6 @@ import sys
 import os
 from datetime import datetime
 
-# Fix CWD before ANY local import or config access
-# When Windows launches the exe via "Open with" / file association (.fcproj),
-# the CWD is set to the folder of the .fcproj, NOT the app directory.
-# ConfigManager then finds no config file, creates a blank one with
-# accepted_terms=False, and the Terms dialog fires even if already accepted.
-# Dragging onto the exe works because Windows keeps CWD at the exe dir.
 if getattr(sys, 'frozen', False):
     os.chdir(os.path.dirname(sys.executable))
 
@@ -43,7 +37,6 @@ from PySide6.QtWidgets import QApplication, QDialog
 from PySide6.QtCore    import Qt, QTimer
 from PySide6.QtGui     import QIcon
 
-# Local
 from config  import ConfigManager, is_windows_dark_mode
 from app     import FadingMainWindow
 from dialogs import ModernSplashScreen, TermsAndPrivacyDialog
@@ -89,8 +82,6 @@ def _is_lang_flag(arg: str) -> bool:
     if not arg.startswith("--"):
         return False
     code = arg[2:].strip('"').strip("'")
-    # a lang flag is never a known CLI command and contains only
-    # letters, digits, hyphens, dots, underscores (valid lang codes / .lang names)
     return bool(code) and all(c.isalnum() or c in "-_." for c in code)
 
 def get_forced_language(argv: list[str]) -> str | None:
@@ -98,7 +89,7 @@ def get_forced_language(argv: list[str]) -> str | None:
     Parse a forced-language flag from the command line.
 
     Accepted forms
-    --------------
+
     --fr                          → "fr"
     --en                          → "en"
     --en-revisited                → "en-revisited"
@@ -115,7 +106,6 @@ def get_forced_language(argv: list[str]) -> str | None:
     while i < len(args):
         a = args[i]
 
-        # --lang <value>  or  --lang=<value>
         if a == "--lang":
             if i + 1 < len(args):
                 return args[i + 1].strip().lower()
@@ -126,7 +116,6 @@ def get_forced_language(argv: list[str]) -> str | None:
         if a.startswith("--lang:"):
             return a.split(":", 1)[1].strip().lower()
 
-        # Skip reserved flags that are not language codes.
         if a.startswith(("--theme=", "--theme:")):
             i += 1
             continue
@@ -146,7 +135,7 @@ def get_forced_theme(argv: list[str]) -> str | None:
     Parse a forced-theme flag from the command line.
 
     Accepted forms
-    --------------
+
     --theme dark          → "dark"
     --theme=dark          → "dark"
     --theme light         → "light"
@@ -161,7 +150,6 @@ def get_forced_theme(argv: list[str]) -> str | None:
     while i < len(args):
         a = args[i]
 
-        # --theme <value>  or  --theme=<value>  or  --theme:<value>
         if a == "--theme":
             if i + 1 < len(args):
                 value = args[i + 1].strip().lower()
@@ -178,7 +166,6 @@ def get_forced_theme(argv: list[str]) -> str | None:
         i += 1
     return None
 
-#  CLI
 
 class CLIHandler:
     """Parses and dispatches CLI achievement commands."""
@@ -206,9 +193,7 @@ Examples:
     def __init__(self, argv: list[str]) -> None:
         self.argv    = argv
         self.command = argv[1].lower() if len(argv) > 1 else None
-        self._mgr    = None   # lazy-loaded tuple of achievement functions
-
-    # Public
+        self._mgr    = None
 
     def is_cli_mode(self) -> bool:
         return self.command in CLI_COMMANDS
@@ -238,8 +223,6 @@ Examples:
 
         sys.exit(0)
 
-    # Command handlers 
-
     def _cmd_status(self) -> None:
         self._print_section("ACHIEVEMENTS STATUS - FILE CONVERTER PRO")
         self._mgr_show_status()
@@ -261,8 +244,6 @@ Examples:
 
     def _cmd_help(self) -> None:
         print(self.HELP_TEXT)
-
-    # Helpers
 
     def _require_arg(self, command: str) -> None:
         if len(self.argv) < 3:
@@ -292,13 +273,11 @@ Examples:
             print("Make sure achievements.db exists in the current directory.")
             sys.exit(1)
 
-    # Thin proxies: guarantee the manager is loaded before every call
     def _mgr_show_status(self)         : self._load_manager(); self._mgr[0]()
     def _mgr_reset_one(self, aid: str) : self._load_manager(); self._mgr[1](aid)
     def _mgr_unlock_one(self, aid: str): self._load_manager(); self._mgr[2](aid)
     def _mgr_reset_all(self)           : self._load_manager(); self._mgr[3]()
 
-#  Single-instance guard
 
 class SingleInstanceGuard:
     """Exits if another instance of the application is already running."""
@@ -322,7 +301,6 @@ class SingleInstanceGuard:
         except ImportError:
             print("[WARN] Single-instance feature not available (QtNetwork missing).")
 
-#  Application bootstrap
 
 class AppBootstrap:
     """Creates the QApplication and loads initial configuration."""
@@ -346,8 +324,6 @@ class AppBootstrap:
         self.config = self._load_config()
         return self
 
-    # Private
-
     def _create_app(self) -> QApplication:
         app       = QApplication(sys.argv)
         icon_path = self._resolve_icon()
@@ -365,20 +341,14 @@ class AppBootstrap:
         config = self.config_manager.load_config()
 
         # Forced language (--fr / --en / --en-revisited / --lang <code>)
-        # Overrides whatever is saved in the config file.
-        # In dev mode this lets you test any language instantly.
-        # The installer also uses --lang <code> on first launch so the app
-        # starts in the language the user chose during installation.
         if self.forced_language:
             config["language"] = self.forced_language
             self.config_manager.save_config(config)
             print(f"[LANG] Language forced to: {self.forced_language!r}")
         elif "language" not in config:
-            # Fresh install with no flag → default to French
             config["language"] = "fr"
             self.config_manager.save_config(config)
 
-        # Overrides system theme detection and whatever is saved in config.
         if self.forced_theme is not None:
             config["dark_mode"]         = (self.forced_theme == "dark")
             config["use_system_theme"]  = False
@@ -397,7 +367,6 @@ class AppBootstrap:
             None,
         )
 
-#  Terms & Privacy guard
 
 class TermsGuard:
     """Shows the Terms & Privacy dialog when user acceptance is required."""
@@ -416,8 +385,6 @@ class TermsGuard:
             sys.exit(0)
 
         self._record_acceptance()
-
-    # Private
 
     def _already_accepted(self) -> bool:
         return (
@@ -439,7 +406,6 @@ class TermsGuard:
 
         self.config_manager.save_config(self.config)
 
-#  Splash → Main window transition
 
 class WindowTransition:
     """Animated crossfade from the splash screen to the main window."""
@@ -457,8 +423,6 @@ class WindowTransition:
     def start(self) -> None:
         win = self._build_main_window()
         self._schedule(win)
-
-    # Private
 
     def _build_main_window(self) -> FadingMainWindow:
         win = FadingMainWindow(self.config_manager)
@@ -514,41 +478,31 @@ class WindowTransition:
         else:
             print(f"[WARN] add_files_to_list not found — dropped files ignored: {self.dropped_files}")
 
-#  Entry point
 
 def main() -> None:
-    # 1/ CLI mode (exits before any Qt initialisation)
     cli = CLIHandler(sys.argv)
     if cli.is_cli_mode():
         cli.run()
 
-    # 2/ Detect files dropped onto the exe icon
     dropped_files = get_dropped_files(sys.argv)
     if dropped_files:
         print(f"[INFO] Files dropped on icon: {dropped_files}")
 
-    # 3/ Detect forced language flag (dev mode + installer handoff)
     forced_language = get_forced_language(sys.argv)
 
-    # 4/ Detect forced theme flag  --theme dark  --theme=light
     forced_theme = get_forced_theme(sys.argv)
 
-    # 5/ Prevent duplicate instances
     _guard = SingleInstanceGuard()
     _guard.acquire()
 
-    # 6/ Qt application + configuration
     bootstrap = AppBootstrap(forced_language=forced_language, forced_theme=forced_theme).setup()
 
-    # 7/ Enforce Terms & Privacy acceptance
     TermsGuard(bootstrap.config, bootstrap.config_manager).enforce()
 
-    # 8/ Splash screen
     splash = ModernSplashScreen(bootstrap.config)
     splash.show()
     splash.start_animation()
 
-    # 9/ Delayed crossfade to main window (pass dropped files if any)
     QTimer.singleShot(
         SPLASH_DELAY,
         lambda: WindowTransition(splash, bootstrap.config_manager, dropped_files).start(),

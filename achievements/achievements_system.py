@@ -79,12 +79,9 @@ class AchievementSystem(QObject):
             "#FF1744"   # Mythic
         ]
         self.current_rank_index = 0
-        self.last_rank_index = -1 # To track rank changes and avoid duplicate signals
+        self.last_rank_index = -1
         self.update_all_progress()
 
-        # Initialize last_rank_index with the current rank computed from the DB,
-        # to avoid re-emitting rank_unlocked on the next check_rank_up() call
-        # for a rank the user already owns.
         _startup_rank_index, _, _ = self.get_current_rank()
         self.last_rank_index = _startup_rank_index
 
@@ -95,7 +92,6 @@ class AchievementSystem(QObject):
         self.save_timer = QTimer()
         self.save_timer.timeout.connect(self.save_stats)
         self.save_timer.start(30000)
-        # Defer sfx report to after the UI is fully painted — avoids blocking startup
         QTimer.singleShot(5000, self.generate_sfx_report)
 
     def get_resource_path(self, relative_path):
@@ -105,24 +101,20 @@ class AchievementSystem(QObject):
                      (e.g. File Converter Pro_internal/)
         Dev mode:    assets are at the project root (_ROOT_DIR)
         """
-        # 1. PyInstaller _MEIPASS — top priority in frozen mode
         meipass = getattr(sys, '_MEIPASS', None)
         if meipass:
             path = os.path.join(meipass, relative_path)
             if os.path.exists(path):
                 return path
 
-        # 2. Project root (dev or fallback)
         path = os.path.join(_ROOT_DIR, relative_path)
         if os.path.exists(path):
             return path
 
-        # 3. CWD
         path = os.path.join(os.getcwd(), relative_path)
         if os.path.exists(path):
             return path
 
-        # 4. Return the _MEIPASS path even if it does not exist (for logging)
         if meipass:
             return os.path.join(meipass, relative_path)
         return os.path.join(_ROOT_DIR, relative_path)
@@ -1276,12 +1268,6 @@ class AchievementSystem(QObject):
                     achievement["requirement"]["value"]
                 ))
 
-                # Sync requirement_value and max_progress if the definition changed.
-                # INSERT OR IGNORE keeps the old row untouched when the id already
-                # exists, so a manual UPDATE is needed to propagate value changes
-                # (e.g. adv_collectionneur: 34 -> 36 after new conversion types were added).
-                # Only non-unlocked achievements are updated to avoid touching
-                # already-earned progress or unlock state.
                 cursor.execute('''
                 UPDATE achievements
                 SET requirement_value = ?,
@@ -1709,7 +1695,6 @@ class AchievementSystem(QObject):
                             (self.stats.get("adv_audio_conversions", 0) +
                              self.stats.get("adv_video_conversions", 0)) >= req_value)
             elif req_type == "adv_all_types_used":
-                # All flag_stat keys from _ADV_TYPE_MAP must have been used at least once
                 all_flags = [v[2] for v in self._ADV_TYPE_MAP.values() if v[2]]
                 used_count = sum(1 for f in all_flags if self.stats.get(f, 0) > 0)
                 achievement["progress"] = used_count
@@ -1812,7 +1797,6 @@ class AchievementSystem(QObject):
         current_index, _, _ = self.get_current_rank()
         if current_index != self.last_rank_index:
             self.last_rank_index = current_index
-            # Emit a signal (to connect in FileConverterApp)
             if hasattr(self, 'rank_unlocked'):
                 self.rank_unlocked.emit(self.get_rank_data_for_popup())
 
@@ -1865,7 +1849,6 @@ class AchievementSystem(QObject):
     def get_achievement_icon_path(self, icon_name):
         try:
             possible_paths = []
-            # PyInstaller: _MEIPASS first
             meipass = getattr(sys, '_MEIPASS', None)
             if meipass:
                 possible_paths.append(os.path.join(meipass, "Assets", icon_name))
@@ -1950,7 +1933,7 @@ class AchievementSystem(QObject):
                 rank_index = i
             else:
                 break
-        fr_name = self.ranks[rank_index][1]   # FR key = translation key
+        fr_name = self.ranks[rank_index][1]
         color = self.rank_colors[rank_index]
         return rank_index, fr_name, color
 
@@ -2136,7 +2119,6 @@ class AchievementSystem(QObject):
             self.check_achievement("eternal_librarian")
 
     # Advanced conversions tracking
-    # Maps each conversion_type key → (category_stat, specific_stat, flag_stat)
     _ADV_TYPE_MAP = {
         "txt_to_pdf":   ("adv_doc_conversions",   None,                    "adv_txt_to_pdf"),
         "rtf_to_pdf":   ("adv_doc_conversions",   None,                    "adv_rtf_to_pdf"),
@@ -2176,19 +2158,15 @@ class AchievementSystem(QObject):
         "ogg_to_mp3":   ("adv_audio_conversions", None,                    "adv_ogg_to_mp3"),
     }
 
-    # Image types tracked for Format Nomade (8 types)
     _ADV_IMG_TYPE_FLAGS = [
         "adv_jpeg_to_png", "adv_png_to_jpg", "adv_jpg_to_png", "adv_webp_to_png",
         "adv_bmp_to_png", "adv_tiff_to_png", "adv_heic_to_png", "adv_gif_to_png",
     ]
-    # Video types tracked for Codec Master (8 types)
     _ADV_VID_TYPE_FLAGS = [
         "adv_avi_to_mp4", "adv_webm_to_mp4", "adv_mkv_to_mp4", "adv_mov_to_mp4",
         "adv_mp4_to_mp3", "adv_avi_to_mp3", "adv_webm_to_mp3", "adv_mkv_to_mp3",
     ]
 
-    # Templates tracking
-    # 9 canonical template type keys (normalized FR)
     _TPL_CATEGORIES = {
         "Conversion PDF→Word", "Conversion Word→PDF", "Conversion Images→PDF",
         "Fusion PDF", "Fusion Word", "Division PDF",
@@ -2200,7 +2178,6 @@ class AchievementSystem(QObject):
         self.increment_stat("tpl_created_total")
         self.check_achievement("tpl_architecte")
         self.check_achievement("tpl_maitre_presets")
-        # tpl_all_categories — recompute with the new type
         self._recompute_tpl_categories(new_type=template_type)
         self.check_achievement("tpl_collectionneur_workflows")
 
@@ -2209,7 +2186,6 @@ class AchievementSystem(QObject):
         self.increment_stat("tpl_applied_total")
         self.check_achievement("tpl_automatiste")
 
-        # Track per-template usage for Le Rituel
         key = f"tpl_usage_{template_id}"
         self.increment_stat(key)
         current_max = self.stats.get("tpl_single_max_applied", 0)
@@ -2218,7 +2194,6 @@ class AchievementSystem(QObject):
             self.update_stat("tpl_single_max_applied", this_count)
         self.check_achievement("tpl_le_rituel")
 
-        # Track types used this session for Polyvalent
         session_key = f"tpl_session_{template_type}"
         if self.stats.get(session_key, 0) == 0:
             self.update_stat(session_key, 1)
@@ -2267,14 +2242,12 @@ class AchievementSystem(QObject):
         """
         try:
             from templates import TemplateManager
-            # Register the new type if provided
             if new_type:
                 normalized = TemplateManager.normalize_type(new_type)
                 if normalized in self._TPL_CATEGORIES:
                     stat_key = "tpl_cat_" + normalized.replace(' ', '_').replace('→', '_').replace('é', 'e').replace('è', 'e').replace('ê', 'e').replace('â', 'a')
                     self.update_stat(stat_key, 1)
 
-            # Count how many distinct categories are flagged
             covered = 0
             for cat in self._TPL_CATEGORIES:
                 stat_key = "tpl_cat_" + cat.replace(' ', '_').replace('→', '_').replace('é', 'e').replace('è', 'e').replace('ê', 'e').replace('â', 'a')
@@ -2296,7 +2269,6 @@ class AchievementSystem(QObject):
         signal emission is deferred to the main thread via QMetaObject.
         """
         if not success:
-            # Break the consecutive streak for advanced conversions too
             self.update_stat("consecutive_success", 0)
             self.save_stats()
             return
@@ -2308,27 +2280,19 @@ class AchievementSystem(QObject):
 
         cat_stat, specific_stat, flag_stat = mapping
 
-        # Advanced counters
-        # Global counter
         self.increment_stat("adv_total_conversions")
         # Category counter
         self.increment_stat(cat_stat)
-        # Specific counter (e.g. adv_html_to_pdf, adv_image_to_ico…)
         if specific_stat:
             self.increment_stat(specific_stat)
-        # Per-type flag — only set once (first use)
         if flag_stat and self.stats.get(flag_stat, 0) == 0:
             self.update_stat(flag_stat, 1)
 
-        # Update image / video type counters
         img_types_used = sum(1 for f in self._ADV_IMG_TYPE_FLAGS if self.stats.get(f, 0) > 0)
         self.update_stat("adv_image_types_used", img_types_used)
         vid_types_used = sum(1 for f in self._ADV_VID_TYPE_FLAGS if self.stats.get(f, 0) > 0)
         self.update_stat("adv_video_types_used", vid_types_used)
 
-        # Compteurs GLOBAUX (progression, nuit, vitesse, formats)
-        # Advanced conversions count exactly like standard conversions
-        # for progression, consecutive, night, and speed achievements.
         from datetime import datetime as _dt
         _hour = _dt.now().hour
         _night = 0 <= _hour < 6
@@ -2350,26 +2314,19 @@ class AchievementSystem(QObject):
         if _ext_norm in ("pdf", "docx", "jpg", "png", "zip", "rar", "tar", "gz"):
             self.record_format_usage(_ext_norm)
 
-        # Flash Gordon — increment the current batch counter
         _batch = self.stats.get("recent_batch_files", 0) + 1
         self.update_stat("recent_batch_files", _batch)
 
-        # Save stats to DB now (we're in a worker thread)
         self.save_stats()
 
         # Achievement checks
-        # Global progression achievements
         self.check_progression_achievements()
 
-        # Noctambule
         if _night:
             self.check_achievement("night_owl")
 
-        # Absolute Perfection (consecutive streaks)
         self.check_achievement("absolute_perfection")
 
-        # Specific advanced achievements
-        from PySide6.QtCore import QMetaObject, Qt as _Qt
         adv_ids = [
             "adv_data_architect", "adv_csv_sorcier", "adv_office_slayer",
             "adv_web_harvester", "adv_bibliotheque", "adv_icon_forge",

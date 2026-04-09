@@ -29,8 +29,6 @@ class DatabaseManager:
 
     def __init__(self):
         self.db_path = "file_converter_stats.db"
-        # Persistent connection, avoids re-opening the file on every call.
-        # WAL mode allows concurrent reads while a write is in progress.
         self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self._conn.execute("PRAGMA journal_mode=WAL")
         self.init_database()
@@ -46,7 +44,6 @@ class DatabaseManager:
         conn = self._conn
         cursor = conn.cursor()
         
-        # Conversions table
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS conversion_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,7 +60,6 @@ class DatabaseManager:
         )
         ''')
         
-        # Templates table
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS templates (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -75,7 +71,6 @@ class DatabaseManager:
         )
         ''')
         
-        # Daily stats table
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS daily_stats (
             date DATE PRIMARY KEY,
@@ -105,7 +100,6 @@ class DatabaseManager:
         ''', (source_file, source_format, target_file, target_format, operation_type,
               file_size, conversion_time, success, notes))
         
-        # Update daily stats
         today = datetime.now().date().isoformat()
         cursor.execute('''
         INSERT OR IGNORE INTO daily_stats (date) VALUES (?)
@@ -119,7 +113,6 @@ class DatabaseManager:
         WHERE date = ?
         ''', (file_size, int(conversion_time * 60), today))
         
-        # Increment the operation counter
         if operation_type == "PDF vers Word":
             cursor.execute('UPDATE daily_stats SET pdf_to_word = pdf_to_word + 1 WHERE date = ?', (today,))
         elif operation_type == "Word vers PDF":
@@ -168,7 +161,6 @@ class DatabaseManager:
         conn = self._conn
         cursor = conn.cursor()
         
-        # General stats
         cursor.execute('''
         SELECT 
             COUNT(*) as total_conversions,
@@ -180,7 +172,6 @@ class DatabaseManager:
         ''')
         general_stats = cursor.fetchone()
         
-        # Most used format
         cursor.execute('''
         SELECT target_format, COUNT(*) as count
         FROM conversion_history
@@ -191,7 +182,6 @@ class DatabaseManager:
         ''')
         top_formats = cursor.fetchall()
         
-        # Most common operations
         cursor.execute('''
         SELECT operation_type, COUNT(*) as count
         FROM conversion_history
@@ -202,7 +192,6 @@ class DatabaseManager:
         ''')
         top_operations = cursor.fetchall()
         
-        # Statistics per day
         end_date = datetime.now().date()
         start_date = end_date - timedelta(days=days-1)
         

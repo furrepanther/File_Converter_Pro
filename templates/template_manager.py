@@ -81,7 +81,6 @@ class TemplateManager:
             cfg = template['config']
             t   = template['type']
 
-            # Normalize the type to French (the DB may store values in any language)
             _type_normalize = {
                 # EN
                 'PDF to Word Conversion':   'Conversion PDF→Word',
@@ -108,46 +107,33 @@ class TemplateManager:
             if not hasattr(parent_app, 'active_templates'):
                 parent_app.active_templates = {}
 
-            # PDF → Word
-            # convert_pdf_to_word lit config["pdf_to_word_mode"]
             if t == "Conversion PDF→Word":
                 mode_map = {
-                    # FR
                     "Conserver les images et la mise en page":  "with_images",
                     "Texte brut uniquement":                    "text_only",
                     "Texte complet (texte + texte des images)": "text_with_image_text",
-                    # EN
                     "Keep images and layout":                   "with_images",
                     "Plain text only":                          "text_only",
                     "Full text (text + image text)":            "text_with_image_text",
-                    # Valeurs internes directes
                     "with_images":          "with_images",
                     "text_only":            "text_only",
                     "text_with_image_text": "text_with_image_text",
                 }
                 _mode = mode_map.get(cfg.get('mode', ''), "with_images")
                 parent_app.config["pdf_to_word_mode"] = _mode
-                # Store to bypass PdfToWordDialog
                 parent_app.active_templates['pdf_to_word'] = {'mode': _mode}
                 parent_app.config_manager.save_config(parent_app.config)
 
-            # Word → PDF
-            # convert_word_to_pdf lit active_templates["word_to_pdf"]["mode"]
-            # to pre-select WordToPdfOptionsDialog
             elif t == "Conversion Word→PDF":
                 mode_map = {
-                    # FR
                     "Conserver toute la mise en page": "preserve_all",
                     "Texte uniquement":                "text_only",
-                    # EN
                     "Preserve all layout":             "preserve_all",
                     "Text only":                       "text_only",
-                    # Internal values already normalized
                     "preserve_all":                    "preserve_all",
                     "text_only":                       "text_only",
                 }
                 _mode = mode_map.get(cfg.get('mode', ''), "preserve_all")
-                # Store everything needed to bypass the dialog
                 parent_app.active_templates['word_to_pdf'] = {
                     'mode':             _mode,
                     'quality':          cfg.get('quality', 'Standard (150 DPI)'),
@@ -157,20 +143,14 @@ class TemplateManager:
                 parent_app.config["word_to_pdf_mode"] = _mode
                 parent_app.config_manager.save_config(parent_app.config)
 
-            # Images → PDF
-            # convert_images_to_pdf reads config["separate_image_pdfs"] and active_templates["images_to_pdf"]
             elif t == "Conversion Images→PDF":
-                # The only parameter actually read by convert_images_to_pdf
                 separate = cfg.get('separate', False)
                 parent_app.config['separate_image_pdfs'] = separate
                 parent_app.config_manager.save_config(parent_app.config)
                 parent_app.active_templates['images_to_pdf'] = {'separate': separate}
 
-            # Fusion PDF
-            # merge_pdfs lit active_templates["pdf_merge"]["resolved_name"]
             elif t == "Fusion PDF":
                 _order_map = {
-                    # French keys (new)
                     "Alphabétique (A→Z)":            "alpha_az",
                     "Alphabétique (Z→A)":            "alpha_za",
                     "Numérique (1→9)":               "num_asc",
@@ -179,7 +159,6 @@ class TemplateManager:
                     "Date (nouveau→ancien)":          "date_desc",
                     "Manuel (glisser-déposer)":       "manual",
                     "Ordre actuel (liste principale)":"current",
-                    # EN
                     "Alphabetical (A→Z)":            "alpha_az",
                     "Alphabetical (Z→A)":            "alpha_za",
                     "Numeric (1→9)":                 "num_asc",
@@ -194,11 +173,8 @@ class TemplateManager:
                     'merge_order_label': cfg.get('merge_order', ''),
                 }
 
-            # Fusion Word
-            # merge_word_docs lit active_templates["word_merge"]["resolved_name"]
             elif t == "Fusion Word":
                 _order_map = {
-                    # French keys (new)
                     "Alphabétique (A→Z)":            "alpha_az",
                     "Alphabétique (Z→A)":            "alpha_za",
                     "Numérique (1→9)":               "num_asc",
@@ -207,7 +183,6 @@ class TemplateManager:
                     "Date (nouveau→ancien)":          "date_desc",
                     "Manuel (glisser-déposer)":       "manual",
                     "Ordre actuel (liste principale)":"current",
-                    # EN
                     "Alphabetical (A→Z)":            "alpha_az",
                     "Alphabetical (Z→A)":            "alpha_za",
                     "Numeric (1→9)":                 "num_asc",
@@ -222,15 +197,11 @@ class TemplateManager:
                     'merge_order_label': cfg.get('merge_order', ''),
                 }
 
-            # Division PDF
-            # split_pdf lit active_templates["pdf_split"]["split_method_label","pages_per_file"]
             elif t == "Division PDF":
                 _method_norm = {
-                    # FR
                     'Par pages':        'Par pages',
                     'Toutes les pages': 'Toutes les pages',
                     'Plage de pages':   'Plage de pages',
-                    # EN
                     'By pages':         'Par pages',
                     'All pages':        'Toutes les pages',
                     'Page range':       'Plage de pages',
@@ -242,10 +213,7 @@ class TemplateManager:
                     'pages_per_file':     cfg.get('pages_per_file', 1),
                 }
 
-            # Protection PDF
-            # protect_pdf opens PasswordDialog — the password is not stored
             elif t == "Protection PDF":
-                # Normalize the mode (may be stored in any language)
                 _mode_norm = {
                     'Basique (restrictions uniquement)':     'basic',
                     'Avancé (mot de passe + restrictions)':  'advanced',
@@ -263,10 +231,7 @@ class TemplateManager:
                     'allow_modifications': cfg.get('allow_modifications', False),
                 }
 
-            # Compression
-            # compress_files reads active_templates["compression"] to pre-fill CompressionDialog
             elif t == "Compression":
-                # Normalize format and level (stored in the creation language)
                 _fmt = {'ZIP':'ZIP','RAR':'RAR','TAR.GZ':'TAR.GZ','TAR':'TAR'}
                 _lvl = {
                     'Normal':'Normal',
@@ -284,19 +249,14 @@ class TemplateManager:
                     'split_size':       cfg.get('split_size', 0),
                 }
 
-            # File optimization
-            # launch_office_optimization reads active_templates["office_optimization"]
             elif t == "Optimisation de fichiers":
                 _mode_map = {
-                    # FR
                     "Compression  —  réduit la taille du fichier": 0,
                     "Nettoyage  —  supprime uniquement les métadonnées": 1,
                     "Compression + Nettoyage  —  recommandé": 2,
-                    # EN
                     "Compression  —  reduces file size": 0,
                     "Cleaning  —  removes metadata only": 1,
                     "Compression + Cleaning  —  recommended": 2,
-                    # valeurs internes
                     "compression": 0, "nettoyage": 1, "les deux": 2,
                     0: 0, 1: 1, 2: 2,
                 }
@@ -410,7 +370,6 @@ class TemplateManager:
                 'compression_level': compression_map.get(parent_app.config.get("compression_level", "normal"), "Normal")
             }
         
-        # Save the template
         self.db_manager.save_template(name, template_type, config)
         self.load_templates()
         

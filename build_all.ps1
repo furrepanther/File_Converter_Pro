@@ -1,10 +1,3 @@
-# ══════════════════════════════════════════════════════════════════════════════
-#  build_all.ps1  —  File Converter Pro
-#  Runs sequentially: build → quick_check → installer
-#  Usage: Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-#         then: .\build_all.ps1
-# ══════════════════════════════════════════════════════════════════════════════
-
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseApprovedVerbs', '')]
 param()
 

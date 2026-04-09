@@ -24,7 +24,6 @@ import csv
 import json
 from datetime import datetime, timedelta
 
-# Default DB file at application root
 DEFAULT_DB_PATH = "file_converter_advanced.db"
 
 class AdvancedDatabaseManager:
@@ -33,12 +32,11 @@ class AdvancedDatabaseManager:
 
     Usage
     -----
-    db = AdvancedDatabaseManager()                  # default path
-    db = AdvancedDatabaseManager("custom/path.db")  # custom path
+    db = AdvancedDatabaseManager()
+    db = AdvancedDatabaseManager("custom/path.db")
     db.add_record(...)
     """
 
-    # Conversion-type categories tracked in daily_stats
     _CATEGORY_COLUMNS = {
         "document" : "doc_conversions",
         "image"    : "img_conversions",
@@ -50,7 +48,6 @@ class AdvancedDatabaseManager:
         self.db_path = db_path
         self._init_database()
 
-    # Schema
     def _init_database(self) -> None:
         with self._connect() as conn:
             cur = conn.cursor()
@@ -86,7 +83,6 @@ class AdvancedDatabaseManager:
 
             conn.commit()
 
-    # Connection helper
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self.db_path)
 
@@ -98,7 +94,7 @@ class AdvancedDatabaseManager:
         target_file: str,
         target_format: str,
         conversion_type: str,
-        category: str,          # "document" | "image" | "audio" | "video"
+        category: str,
         file_size: int   = 0,
         conversion_time: float = 0.0,
         success: bool    = True,
@@ -126,7 +122,6 @@ class AdvancedDatabaseManager:
             ))
             new_id = cur.lastrowid
 
-            # Ensure today's row exists
             cur.execute(
                 "INSERT OR IGNORE INTO adv_daily_stats (date) VALUES (?)", (today,)
             )
@@ -144,7 +139,6 @@ class AdvancedDatabaseManager:
 
         return new_id
 
-    # Read
     def get_history(
         self,
         limit: int = 200,
@@ -254,7 +248,6 @@ class AdvancedDatabaseManager:
             "daily_stats": daily_stats,
         }
 
-    # Export
     def export_history(self, filepath: str, fmt: str = "csv") -> None:
         """Export full history to *filepath* in 'csv' or 'json' format."""
         rows = self.get_history(limit=100_000)
@@ -282,7 +275,6 @@ class AdvancedDatabaseManager:
         else:
             raise ValueError(f"Unknown export format: {fmt!r}")
 
-    # Compatibility shim for StatisticsDashboard
     def get_conversion_history(
         self,
         limit: int = 200,
@@ -303,7 +295,6 @@ class AdvancedDatabaseManager:
             start_date=start_date,
             end_date=end_date,
         )
-        # remap: drop category col (index 7), rename error_message → notes
         return [
             (r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[8], r[9], r[10], r[11])
             for r in rows
@@ -323,34 +314,20 @@ class AdvancedDatabaseManager:
             top_formats   : [(format_str, count), ...]
             top_operations: [(operation_str, count), ...]
             daily_stats   : [(date, total_conversions, total_size, total_time_saved_min), ...]
-
-        Notes:
-          - top_formats   → we use top_types (the actual conversion names, e.g. "txt_to_pdf")
-          - top_operations→ same top_types list (best match: most frequent conversions)
-          - daily_stats[3] = total_time_saved in minutes (dashboard multiplies back to seconds)
-                             We store conversion_time in seconds, convert to minutes here.
         """
         stats   = self._get_statistics_raw(days)
-        general = stats["general"]  # (count, total_size, total_time_s, avg_time_s)
+        general = stats["general"]
         daily   = stats["daily_stats"]
 
-        # general: keep shape identical
-        # (total, total_size, total_time_s, avg_time_s) — dashboard uses index [2] as total_time
-        general_compat = general  # already (count, size, time_s, avg_s) — perfect match
+        general_compat = general
 
-        # daily_stats compat: (date, total_conversions, total_size, total_time_saved_minutes)
-        # dashboard does: total_time = stats['general'][2]  → seconds directly
-        # daily row[3] = total_time_saved (minutes) used only for tooltip, not critical
         daily_compat = [
-            (d[0], d[1], d[2], int((d[1] or 0) * 0.5))   # estimate 0.5 min saved per conversion
+            (d[0], d[1], d[2], int((d[1] or 0) * 0.5))
             for d in daily
         ]
 
-        # top_formats → use conversion_type strings as "format" labels
-        # top_operations → same list (dashboard shows both identically styled)
         top_types = stats["top_types"]
 
-        # Also enrich with human-readable labels
         _LABELS = {
             "txt_to_pdf":"TXT→PDF","rtf_to_pdf":"RTF→PDF",
             "txt_to_docx":"TXT→DOCX","rtf_to_docx":"RTF→DOCX",

@@ -32,7 +32,6 @@ class RankPopup(QDialog):
         self._tm = TranslationManager()
         self._tm.set_language(language)
         self.dark_mode = getattr(parent, 'dark_mode', True)
-        # setup_ui is called via set_translator() from app.py
 
     def setup_ui(self):
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
@@ -92,7 +91,7 @@ class RankPopup(QDialog):
         content_layout = QVBoxLayout()
         
         rank_up_text = self.translate_text("Rank Up!")
-        self.rank_up_label = QLabel(rank_up_text.upper())  # Uppercase for impact
+        self.rank_up_label = QLabel(rank_up_text.upper())
         self.rank_up_label.setAttribute(Qt.WA_TranslucentBackground)
         self.rank_up_label.setStyleSheet("""
             font-size: 14px;
@@ -151,10 +150,8 @@ class RankPopup(QDialog):
                 families = QFontDatabase.applicationFontFamilies(font_id)
                 if families:
                     inter_font = QFont(families[0], 12)
-                    # Apply to all labels except the XP title
                     for label in [self.rank_up_label, title_label, name_label]:
                         label.setFont(inter_font)
-                    # Adjust the "Rank Up!" size to keep the impact
                     rank_up_font = QFont(families[0], 16, QFont.Bold)
                     self.rank_up_label.setFont(rank_up_font)
 

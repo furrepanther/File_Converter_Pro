@@ -1,6 +1,5 @@
 """
 Conversion Worker — File Converter Pro
-conversion_worker.py
 
 Runs any conversion workload in a background QThread so the UI
 never freezes.  Drop-in replacement for the blocking for-loops
@@ -25,36 +24,14 @@ from PySide6.QtCore import QThread, Signal
 class ConversionWorker(QThread):
     """
     Generic background worker for file conversions.
-
-    Parameters
-    ----------
-    tasks : list[dict]
-        Each dict must have at minimum:
-            'index'       : int   - position in the batch (0-based)
-            'total'       : int   - total number of tasks
-            'input_path'  : str   - source file path
-            'output_path' : str   - destination file path
-        Additional keys are forwarded verbatim to runner_fn.
-
-    runner_fn : callable(task: dict) -> dict
-        Called once per task, in the worker thread.
-        Must return a result dict with at minimum:
-            'success' : bool
-            'error'   : str  (empty string on success)
-        May add any extra keys (e.g. 'operation_time', 'file_size').
-        Must NOT touch Qt widgets, communicate only via signals.
     """
 
-    # int 0-100: overall progress across all tasks
     progress = Signal(int)
 
-    # dict: result returned by runner_fn, augmented with the original task
     file_done = Signal(dict)
 
-    # dict: summary {'success_count', 'total', 'failed', 'total_time'}
     finished = Signal(dict)
 
-    # str: unexpected exception message (stops the batch)
     error = Signal(str)
 
     def __init__(self, tasks: list, runner_fn, parent=None):

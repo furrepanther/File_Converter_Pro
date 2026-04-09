@@ -2608,7 +2608,6 @@ class TranslationManager:
                 ),
             }
         }
-        # Auto-load all .lang files present at startup
         self._autoload_lang_files()
 
     # Language management
@@ -2670,7 +2669,6 @@ class TranslationManager:
         except Exception as e:
             return False, f"Cannot read file: {e}"
 
-        # Validate structure
         if "meta" not in data or "strings" not in data:
             return False, "Invalid .lang file: missing 'meta' or 'strings' section."
         meta = data["meta"]
@@ -2683,7 +2681,6 @@ class TranslationManager:
         if not code:
             return False, "Language code cannot be empty."
 
-        # Copy to languages/ folder
         os.makedirs(_LANGUAGES_DIR, exist_ok=True)
         dest = os.path.join(_LANGUAGES_DIR, f"{code}.lang")
         try:
@@ -2691,7 +2688,6 @@ class TranslationManager:
         except Exception as e:
             return False, f"Cannot save to languages folder: {e}"
 
-        # Load into memory
         self._load_lang_file_internal(dest)
         return True, meta["name"]
 
@@ -2707,13 +2703,10 @@ class TranslationManager:
         if not code or not isinstance(strings, dict):
             raise ValueError("Missing code or strings.")
 
-        # Merge: external strings fill gaps; they DO NOT override built-ins if
-        # a key already exists in fr/en (safety measure).
         if code not in self.translations:
             self.translations[code] = {}
         self.translations[code].update(strings)
 
-        # Store metadata (including file path for removal support)
         meta["file"] = filepath
         self._external_meta[code] = meta
 
@@ -2728,7 +2721,6 @@ class TranslationManager:
         if code not in self._external_meta:
             return False, f"Language '{code}' is not loaded."
 
-        # Remove file
         filepath = self._external_meta[code].get("file", "")
         if filepath and os.path.isfile(filepath):
             try:
@@ -2736,11 +2728,9 @@ class TranslationManager:
             except Exception as e:
                 return False, f"Cannot delete file: {e}"
 
-        # Remove from memory
         self._external_meta.pop(code, None)
         self.translations.pop(code, None)
 
-        # Fall back to French if we just removed the active language
         if self.current_language == code:
             self.current_language = "fr"
 
@@ -2748,12 +2738,11 @@ class TranslationManager:
 
     # Translation
     def translate_text(self, text):
-        # Always use the dictionary, even in French
+        # Always use the dictionary
         if self.current_language in self.translations:
             lang_dict = self.translations[self.current_language]
             result = lang_dict.get(text, text)
             # .lang files store newlines as the two-character sequence backslash+n.
-            # Replace them with real newlines so multiline strings render correctly.
             if isinstance(result, str) and chr(92) + 'n' in result:
                 result = result.replace(chr(92) + 'n', chr(10)).replace(chr(92) + 't', chr(9))
             return result

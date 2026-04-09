@@ -9,18 +9,14 @@ function Write-Error   { param($msg) Write-Host "✗ $msg" -ForegroundColor Red 
 function Write-Info    { param($msg) Write-Host "ℹ $msg" -ForegroundColor Cyan }
 function Write-Warning { param($msg) Write-Host "⚠ $msg" -ForegroundColor Yellow }
 
-# Prerequisites check
-
 Write-Info "Checking environment..."
 
-# Check UPX
 if (-not (Test-Path $UPX_PATH)) {
     Write-Error "UPX not found at: $UPX_PATH"
     exit 1
 }
 Write-Success "UPX found: $UPX_PATH"
 
-# Check PyInstaller
 try {
     $pyinstallerVersion = & pyinstaller --version 2>&1
     Write-Success "PyInstaller installed: $pyinstallerVersion"
@@ -29,14 +25,12 @@ try {
     exit 1
 }
 
-# Check spec file
 if (-not (Test-Path "build.spec")) {
     Write-Error "build.spec not found in current directory"
     exit 1
 }
 Write-Success "Spec file found"
 
-# Configure UPX environment
 
 Write-Info "Configuring UPX for PyInstaller..."
 
@@ -50,7 +44,6 @@ try {
     exit 1
 }
 
-# Cleanup
 
 Write-Info "Cleaning up old builds..."
 
@@ -64,7 +57,6 @@ if (Test-Path "dist") {
     Write-Success "Dist folder cleaned"
 }
 
-# Compilation
 
 Write-Info "Starting compilation with PyInstaller + UPX..."
 Write-Info "This may take several minutes..."
@@ -88,16 +80,12 @@ try {
     exit 1
 }
 
-# Remove parasite exe from dist\ (PyInstaller artifact, unusable without its folder)
 $parasiteExe = "dist\File Converter Pro.exe"
 if (Test-Path $parasiteExe) {
     Remove-Item -Force $parasiteExe
     Write-Success "Parasite exe removed from dist\"
 }
 
-# Output checks and stats
-
-# ONEDIR: exe is located inside a subfolder
 $exePath = "dist\File Converter Pro\File Converter Pro.exe"
 $distFolder = "dist\File Converter Pro"
 
@@ -105,14 +93,12 @@ if (Test-Path $exePath) {
     $fileInfo = Get-Item $exePath
     $sizeMB = [math]::Round($fileInfo.Length / 1MB, 2)
     
-    # Total folder size
     $folderSize = [math]::Round((Get-ChildItem $distFolder -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB, 2)
     
     Write-Success "Executable created: $exePath"
     Write-Info "Exe size: $sizeMB MB"
     Write-Info "Total folder size: $folderSize MB"
     
-    # Launch test
     Write-Info "Running quick launch test..."
     try {
         $process = Start-Process -FilePath $exePath -PassThru -WindowStyle Hidden
@@ -131,8 +117,6 @@ if (Test-Path $exePath) {
     Write-Error "Executable not found after compilation"
     exit 1
 }
-
-# Final information
 
 Write-Info ""
 Write-Info "═══════════════════════════════════════════"

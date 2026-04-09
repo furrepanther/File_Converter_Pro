@@ -1,6 +1,4 @@
 """
-word_to_pdf_dialog.py - Word to PDF Conversion Options Dialog
-
 Provides a modal dialog for configuring Word-to-PDF conversion settings,
 including formatting preservation mode, image quality, metadata options,
 and a live-updating preview panel that reflects the selected mode.
@@ -12,10 +10,6 @@ Features:
     - Modern slim scrollbar styled per theme
     - Bilingual support (French / English)
     - Intelligent space management: dialog resizes when advanced panel toggles
-
-Dependencies:
-    - PySide6
-    - widgets.AnimatedCheckBox (local)
 
 Author: Hyacinthe
 Version: 1.0
@@ -36,7 +30,6 @@ from widgets import AnimatedCheckBox
 
 from translations import TranslationManager
 
-# Theme color tokens — dark mode
 _DARK = {
     "preview_bg":    "#0d1117",
     "preview_fg":    "#c9d1d9",
@@ -50,7 +43,6 @@ _DARK = {
     "bullet_muted":  "#495057",
 }
 
-# Theme color tokens — light mode
 _LIGHT = {
     "preview_bg":    "#f8f9fa",
     "preview_fg":    "#212529",
@@ -64,7 +56,6 @@ _LIGHT = {
     "bullet_muted":  "#ced4da",
 }
 
-# Stylesheet for the advanced QGroupBox — dark mode
 _ADVANCED_GROUP_DARK = """
     QGroupBox {
         font-weight: bold;
@@ -122,7 +113,6 @@ _ADVANCED_GROUP_DARK = """
     }
 """
 
-# Stylesheet for the advanced QGroupBox — light mode
 _ADVANCED_GROUP_LIGHT = """
     QGroupBox {
         font-weight: bold;
@@ -180,7 +170,6 @@ _ADVANCED_GROUP_LIGHT = """
     }
 """
 
-# OK button stylesheet
 _BTN_OK = """
     QPushButton {
         background-color: #28a745; color: white;
@@ -191,7 +180,6 @@ _BTN_OK = """
     QPushButton:pressed { background-color: #1e7e34; }
 """
 
-# Cancel button stylesheet
 _BTN_CANCEL = """
     QPushButton {
         background-color: #B55454; color: white;
@@ -202,7 +190,6 @@ _BTN_CANCEL = """
     QPushButton:pressed { background-color: #8B3030; }
 """
 
-# Dialog class
 
 class WordToPdfOptionsDialog(QDialog):
     """
@@ -227,7 +214,6 @@ class WordToPdfOptionsDialog(QDialog):
         self.setModal(True)
         self._setup_ui()
 
-    # UI construction
     def _setup_ui(self) -> None:
         """Build and wire all top-level widgets into the dialog layout."""
         layout = QVBoxLayout(self)
@@ -238,7 +224,6 @@ class WordToPdfOptionsDialog(QDialog):
         layout.addWidget(self._build_preview_group(), stretch=1)
         layout.addWidget(self._build_buttons())
 
-        # Wire radio buttons to the mode-change handler
         self.preserve_all_radio.toggled.connect(self._on_mode_changed)
         self.text_only_radio.toggled.connect(self._on_mode_changed)
 
@@ -248,7 +233,6 @@ class WordToPdfOptionsDialog(QDialog):
         layout = QVBoxLayout(group)
         layout.setSpacing(6)
 
-        # Animated buttons
         self.mode_group = QButtonGroup(self)
 
         self.preserve_all_radio = AnimatedCheckBox(
@@ -263,7 +247,6 @@ class WordToPdfOptionsDialog(QDialog):
         self.mode_group.addButton(self.preserve_all_radio, 1)
         self.mode_group.addButton(self.text_only_radio,    2)
 
-        # Optional extra info line when the document has formatted content
         info_text = self.translate_text("📋 Sélectionnez le mode de conversion :")
         if self.has_content:
             info_text += "\n" + self.translate_text(
@@ -274,7 +257,6 @@ class WordToPdfOptionsDialog(QDialog):
         info_label.setWordWrap(True)
         info_label.setStyleSheet("color: #007acc; font-size: 12.5px; margin: 4px 0;")
 
-        # Collapsible advanced options
         self.advanced_group = self._build_advanced_group()
 
         layout.addWidget(info_label)
@@ -291,7 +273,6 @@ class WordToPdfOptionsDialog(QDialog):
         group.setCheckable(True)
         group.setChecked(False)
 
-        # Pick the right stylesheet for the current theme
         group.setStyleSheet(
             _ADVANCED_GROUP_DARK if self.is_dark_mode else _ADVANCED_GROUP_LIGHT
         )
@@ -331,7 +312,6 @@ class WordToPdfOptionsDialog(QDialog):
         self.preview_text.setMinimumHeight(90)
         self.preview_text.setStyleSheet(self._build_preview_stylesheet())
 
-        # Populate with initial HTML content
         self._update_preview_html()
 
         layout.addWidget(self.preview_text)
@@ -393,25 +373,21 @@ class WordToPdfOptionsDialog(QDialog):
         box.rejected.connect(self.reject)
         return box
 
-    # Slots
     def _on_mode_changed(self) -> None:
         """Show/hide advanced options and refresh the preview whenever the mode switches."""
         is_preserve = self.preserve_all_radio.isChecked()
 
         self.advanced_group.setVisible(is_preserve)
 
-        # Give the preview more vertical room when the advanced panel is hidden
         self.preview_text.setMinimumHeight(90 if is_preserve else 110)
 
         self._update_preview_html()
 
-    # Preview rendering
     def _update_preview_html(self) -> None:
         """Rebuild the preview HTML, visually highlighting the active mode."""
         c           = _DARK if self.is_dark_mode else _LIGHT
         is_preserve = self.preserve_all_radio.isChecked()
 
-        # Localized labels
         title_keep   = self.translate_text("Mode 'Conserver tout'")
         title_text   = self.translate_text("Mode 'Texte seulement'")
 
@@ -427,12 +403,10 @@ class WordToPdfOptionsDialog(QDialog):
         ]
 
         if is_preserve:
-            # "Keep all" active → highlighted; "text-only" shown in accent color
             color_keep,  color_text   = c["title_active"], c["title_accent"]
             bullets_keep, bullets_text = c["bullet_active"], c["bullet_active"]
             prefix_text = ""
         else:
-            # "Text only" active → "keep all" muted, "text-only" highlighted
             color_keep,  color_text   = c["title_muted"], c["title_active"]
             bullets_keep, bullets_text = c["bullet_muted"], c["bullet_active"]
             prefix_text = "▶ "
@@ -450,18 +424,16 @@ class WordToPdfOptionsDialog(QDialog):
             )
 
         html = (
-            _section(title_keep,                  color_keep, keep_bullets, bullets_keep)
-            + _section(prefix_text + title_text,  color_text, text_bullets, bullets_text, bottom_gap="0")
+            _section(title_keep, color_keep, keep_bullets, bullets_keep)
+            + _section(prefix_text + title_text, color_text, text_bullets, bullets_text, bottom_gap="0")
         )
 
         self.preview_text.setHtml(html)
 
-    # Helpers
     def translate_text(self, text: str) -> str:
         """Return the translated string for the current language, falling back to the key itself."""
         return self._tm.translate_text(text)
 
-    # Public API
     def get_conversion_mode(self) -> dict:
         """
         Return the user's selected conversion settings.

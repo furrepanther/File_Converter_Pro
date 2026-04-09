@@ -41,7 +41,7 @@ from PySide6.QtGui import QKeySequence, QShortcut
 
 class HistoryLoader(QObject):
     """Worker that runs the DB query in a separate thread."""
-    finished = Signal(list)   # emits results once the query is complete
+    finished = Signal(list)
 
     def __init__(self, db_manager, limit, search_query, start_date, end_date):
         super().__init__()
@@ -127,7 +127,6 @@ class HistoryDialog(QDialog):
 
     def setup_ui(self):
 
-        # Reconvert → Emerald Green
         reconvert_button_style = """
         QPushButton {
             background-color: #10B981;
@@ -145,7 +144,6 @@ class HistoryDialog(QDialog):
         }
         """
 
-        # Print PDF → Indigo/Blue
         print_pdf_button_style = """
         QPushButton {
             background-color: #6366F1;
@@ -163,7 +161,6 @@ class HistoryDialog(QDialog):
         }
         """
 
-        # Export to JSON → Lime Green
         export_json_button_style = """
         QPushButton {
             background-color: #A3E635;
@@ -181,7 +178,6 @@ class HistoryDialog(QDialog):
         }
         """
 
-        # Delete selection → Soft Red
         delete_selection_style = """
         QPushButton {
             background-color: #EF4444;
@@ -199,7 +195,6 @@ class HistoryDialog(QDialog):
         }
         """
 
-        # Clear all history → Brick red
         clear_all_style = """
         QPushButton {
             background-color: #DC2626;
@@ -243,7 +238,6 @@ class HistoryDialog(QDialog):
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(6)
 
-        # Row 1: DB source selector
         source_layout = QHBoxLayout()
         source_layout.setSpacing(8)
 
@@ -284,7 +278,6 @@ class HistoryDialog(QDialog):
         source_layout.addStretch()
         layout.addLayout(source_layout)
 
-        # Row 2: search + date filters
         filter_layout = QHBoxLayout()
         filter_layout.setSpacing(8)
 
@@ -327,7 +320,6 @@ class HistoryDialog(QDialog):
         self.end_date_edit.setFixedWidth(140)
         self.end_date_edit.setStyleSheet(date_style)
 
-        # Fix the year spinner height in the calendar popup
         _cal_style = """
             QCalendarWidget QSpinBox {
                 min-height: 30px;
@@ -361,7 +353,6 @@ class HistoryDialog(QDialog):
 
         layout.addLayout(filter_layout)
         
-        # History table
         self.history_table = QTableWidget()
         self.history_table.setColumnCount(8)
         self.history_table.setHorizontalHeaderLabels([
@@ -379,10 +370,8 @@ class HistoryDialog(QDialog):
         self.history_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.history_table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.history_table.customContextMenuRequested.connect(self.show_context_menu)
-        # Row height — 36px for emoji clearance on Windows
         self.history_table.verticalHeader().setDefaultSectionSize(36)
         self.history_table.verticalHeader().setMinimumSectionSize(36)
-        # Fixed column widths — prevents layout shift on DB switch
         from PySide6.QtWidgets import QHeaderView
         hh = self.history_table.horizontalHeader()
         hh.setSectionResizeMode(0, QHeaderView.Fixed);   self.history_table.setColumnWidth(0, 130)  # Date
@@ -396,7 +385,6 @@ class HistoryDialog(QDialog):
         
         layout.addWidget(self.history_table)
         
-        # Action buttons
         button_layout = QHBoxLayout()
         
         self.reconvert_btn = QPushButton("🔄 " + self.translate_text("Reconvertir la sélection"))
@@ -435,7 +423,6 @@ class HistoryDialog(QDialog):
         
         layout.addLayout(button_layout)
         
-        # Connect row selection
         self.history_table.itemSelectionChanged.connect(self.update_button_states)
         self.setup_shortcuts()
         self.apply_scrollbar_style()
@@ -448,24 +435,22 @@ class HistoryDialog(QDialog):
 
         active_db = self.adv_db_manager if self._use_adv_db else self.db_manager
 
-        # Cleanly cancel the previous thread without deleteLater
         if self._loader_thread is not None:
             try:
                 if self._loader_thread.isRunning():
                     self._loader_thread.quit()
                     self._loader_thread.wait()
             except RuntimeError:
-                pass  # C++ object already destroyed, ignore
+                pass
             self._loader_thread = None
 
-        self._loader_thread = QThread(self)   # parent=self → Qt won't destroy it prematurely
+        self._loader_thread = QThread(self)
         self._worker = HistoryLoader(active_db, limit, search_query, start_date, end_date)
         self._worker.moveToThread(self._loader_thread)
 
         self._loader_thread.started.connect(self._worker.run)
         self._worker.finished.connect(self._on_history_loaded)
         self._worker.finished.connect(self._loader_thread.quit)
-        # No deleteLater — lifetime is managed via self._loader_thread
 
         self._loader_thread.start()
 
@@ -476,42 +461,34 @@ class HistoryDialog(QDialog):
         for i, row in enumerate(history):
             self.history_table.insertRow(i)
             
-            # Date/Time
             dt = datetime.strptime(row[1], '%Y-%m-%d %H:%M:%S')
             date_item = QTableWidgetItem(dt.strftime('%d/%m/%Y %H:%M'))
             date_item.setData(Qt.UserRole, row[0])  # Store the ID
             self.history_table.setItem(i, 0, date_item)
             
-            # Operation type
             op_key = row[6]
             display_text = self.translate_operation_type(op_key)
             self.history_table.setItem(i, 1, QTableWidgetItem(display_text))
             
-            # Source file (short name)
             source_name = Path(row[2]).name if row[2] else ""
             source_item = QTableWidgetItem(source_name)
             source_item.setToolTip(row[2])
             self.history_table.setItem(i, 2, source_item)
             
-            # Source format
             self.history_table.setItem(i, 3, QTableWidgetItem(row[3]))
             
-            # Target file (short name)
             target_name = Path(row[4]).name if row[4] else ""
             target_item = QTableWidgetItem(target_name)
             target_item.setToolTip(row[4])
             self.history_table.setItem(i, 4, target_item)
             
-            # Target format
             self.history_table.setItem(i, 5, QTableWidgetItem(row[5]))
             
-            # Status
             status = "✅" if row[9] else "❌"
             status_item = QTableWidgetItem(status)
             status_item.setTextAlignment(Qt.AlignCenter)
             self.history_table.setItem(i, 6, status_item)
 
-            # Actions
             action_widget = QWidget()
             action_widget.setAttribute(Qt.WA_TranslucentBackground)
             action_widget.setStyleSheet("background: transparent;")
@@ -597,15 +574,13 @@ class HistoryDialog(QDialog):
             return
         
         for row in rows:
-            source_file = self.history_table.item(row, 2).toolTip()  # Full path from the tooltip
+            source_file = self.history_table.item(row, 2).toolTip()
             operation_type = self.history_table.item(row, 1).text()
             
             if os.path.exists(source_file):
-                # Add the file to the main list
                 if self.parent_window:
                     self.parent_window.add_files_to_list([source_file])
                     
-                    # Launch the appropriate conversion
                     if "PDF vers Word" in operation_type:
                         self.parent_window.convert_pdf_to_word()
                     elif "Word vers PDF" in operation_type:
@@ -751,19 +726,17 @@ class HistoryDialog(QDialog):
             from reportlab.lib.units import cm
             from reportlab.platypus import (SimpleDocTemplate, Table, TableStyle,
                                             Paragraph, Spacer, HRFlowable)
-            from reportlab.lib.enums import TA_CENTER, TA_LEFT
             from collections import defaultdict
 
             # Palette
-            COLOR_HEADER_BG    = colors.HexColor("#4F46E5")  # indigo
+            COLOR_HEADER_BG    = colors.HexColor("#4F46E5")
             COLOR_HEADER_TEXT  = colors.white
-            COLOR_ROW_ODD      = colors.HexColor("#F5F3FF")  # lavender tint
+            COLOR_ROW_ODD      = colors.HexColor("#F5F3FF")
             COLOR_ROW_EVEN     = colors.white
-            COLOR_SUCCESS      = colors.HexColor("#10B981")  # emerald
-            COLOR_FAIL         = colors.HexColor("#EF4444")  # red
-            COLOR_GRID         = colors.HexColor("#C7D2FE")  # light indigo
+            COLOR_SUCCESS      = colors.HexColor("#10B981")
+            COLOR_FAIL         = colors.HexColor("#EF4444")
+            COLOR_GRID         = colors.HexColor("#C7D2FE")
 
-            # Styles
             styles = getSampleStyleSheet()
             title_style = ParagraphStyle(
                 "Title", parent=styles["Title"],
@@ -785,7 +758,6 @@ class HistoryDialog(QDialog):
                 fontSize=7, leading=9
             )
 
-            # Collect data from the currently visible table
             rows_by_type = defaultdict(list)
             for r in range(self.history_table.rowCount()):
                 date    = self.history_table.item(r, 0).text() if self.history_table.item(r, 0) else ""
@@ -797,7 +769,6 @@ class HistoryDialog(QDialog):
                 status  = self.history_table.item(r, 6).text() if self.history_table.item(r, 6) else ""
                 rows_by_type[op_type].append((date, src, src_fmt, tgt, tgt_fmt, status))
 
-            # Build PDF
             doc = SimpleDocTemplate(
                 filepath, pagesize=A4,
                 leftMargin=1.5*cm, rightMargin=1.5*cm,
@@ -805,7 +776,6 @@ class HistoryDialog(QDialog):
             )
             story = []
 
-            # Title
             from datetime import datetime as _dt
             story.append(Paragraph("📋 " + self.translate_text("Historique des Conversions"), title_style))
             story.append(Paragraph(
@@ -826,7 +796,6 @@ class HistoryDialog(QDialog):
             ]
             col_widths = [3.2*cm, 4.8*cm, 1.6*cm, 4.8*cm, 1.6*cm, 1.4*cm]
 
-            # One table per operation type
             for op_type, data_rows in sorted(rows_by_type.items()):
                 story.append(Paragraph(f"▸  {op_type}  ({len(data_rows)})", section_style))
 
@@ -847,9 +816,7 @@ class HistoryDialog(QDialog):
 
                 t = Table(table_data, colWidths=col_widths, repeatRows=1)
 
-                # Build per-row background commands
                 style_cmds = [
-                    # Header row
                     ("BACKGROUND",  (0, 0), (-1, 0), COLOR_HEADER_BG),
                     ("TEXTCOLOR",   (0, 0), (-1, 0), COLOR_HEADER_TEXT),
                     ("FONTNAME",    (0, 0), (-1, 0), "Helvetica-Bold"),
@@ -864,7 +831,6 @@ class HistoryDialog(QDialog):
                     ("VALIGN",      (0, 0), (-1, -1), "MIDDLE"),
                 ]
 
-                # Color status column
                 for row_idx, (_, _, _, _, _, status) in enumerate(data_rows, start=1):
                     clr = COLOR_SUCCESS if "✅" in status else COLOR_FAIL
                     style_cmds.append(("TEXTCOLOR", (5, row_idx), (5, row_idx), clr))

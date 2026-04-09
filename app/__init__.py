@@ -10,7 +10,7 @@ Inheritance chain:
     QMainWindow
         └── AppLogicMixin   (app/logic.py)
                 └── AppUIMixin      (app/ui.py)
-                        └── FileConverterApp  (this file)
+                        └── FileConverterApp
                                 └── FadingMainWindow
 
 Author: Hyacinthe
@@ -18,7 +18,7 @@ Version: 1.0
 """
 
 from PySide6.QtWidgets import QMainWindow
-from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QTimer
+from PySide6.QtCore import QPropertyAnimation, QEasingCurve, QTimer
 
 from app.ui import AppUIMixin
 

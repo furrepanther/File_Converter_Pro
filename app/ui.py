@@ -59,15 +59,6 @@ from PySide6.QtGui import (QIcon, QPixmap, QFont, QColor, QAction, QPainter,
 from datetime import datetime
 import time
 
-# PDF / Word / Image libraries
-# Each import is isolated so a single missing library never silently kills the
-# others.  Variables are set to None when unavailable so callers can guard
-# with  `if PdfReader is None: ...`  instead of getting a NameError at runtime.
-#
-# NOTE: fitz (PyMuPDF) is intentionally NOT imported here — it is heavy (~70 MB
-# in RAM) and only needed inside specific PDF-processing methods. Each method
-# does `import fitz` locally so the library loads on first use, not at startup.
-
 try:
     from pdf2docx import Converter as _Converter
     Converter = _Converter
@@ -75,20 +66,11 @@ except ImportError as _e:
     Converter = None
     print(f"[IMPORT] pdf2docx not available: {_e}")
 
-
-# Local imports — always needed at startup
 from translations import TranslationManager
 from widgets import DraggableListWidget, AnimatedCheckBox
 from dialogs import (SettingsDialog, BatchRenameDialog, ConversionOptionsDialog, PreviewDialog)
 from achievements import AchievementsUI, AchievementPopup, RankPopup
 
-
-# Lazy local imports — loaded on first use, not at startup
-# dashboard : pulls matplotlib (~40 MB) which is only needed when the user
-#             opens the statistics window.
-# history   : standalone dialog, not needed until the user opens history.
-# templates : large module, not needed until the user opens templates.
-# tarfile   : stdlib but unnecessary at startup — only used for archive export.
 def _get_StatisticsDashboard():
     from dashboard import StatisticsDashboard
     return StatisticsDashboard
@@ -120,7 +102,6 @@ class PdfProtectionDialog(QDialog):
         lay = QVBoxLayout(self)
         lay.setSpacing(12)
 
-        # Mode combo
         mode_lay = QHBoxLayout()
         mode_lay.addWidget(QLabel(self.tr_("Mode:")))
         self.mode_combo = QComboBox()
@@ -132,7 +113,6 @@ class PdfProtectionDialog(QDialog):
         mode_lay.addWidget(self.mode_combo)
         lay.addLayout(mode_lay)
 
-        # Password fields (Advanced mode only)
         self._pwd_group = QGroupBox(self.tr_("Mot de passe"))
         pwd_lay = QFormLayout(self._pwd_group)
         self.password_input = QLineEdit()
@@ -144,7 +124,6 @@ class PdfProtectionDialog(QDialog):
         self._pwd_group.setVisible(False)
         lay.addWidget(self._pwd_group)
 
-        # Permissions
         perm_group = QGroupBox(self.tr_("Permissions"))
         perm_lay = QVBoxLayout(perm_group)
 
@@ -172,7 +151,6 @@ class PdfProtectionDialog(QDialog):
         perm_lay.addWidget(self.allow_assemble_check)
         lay.addWidget(perm_group)
 
-        # Buttons
         btn_row = QHBoxLayout()
         ok_btn = QPushButton(self.tr_("Appliquer"))
         ok_btn.setMinimumHeight(36)
@@ -196,7 +174,7 @@ class PdfProtectionDialog(QDialog):
         lay.addLayout(btn_row)
 
     def _on_mode_changed(self, idx):
-        self._pwd_group.setVisible(idx == 1)  # Advanced = index 1
+        self._pwd_group.setVisible(idx == 1)
         self.adjustSize()
 
     def is_advanced(self):
@@ -239,6 +217,7 @@ class PdfProtectionDialog(QDialog):
                 return
         self.accept()
 
+
 class MergeOrderDialog(QDialog):
     """Dialog for choosing merge order and optionally reordering files manually."""
 
@@ -247,13 +226,12 @@ class MergeOrderDialog(QDialog):
         self._tm = TranslationManager()
         self._tm.set_language(language)
         self.files = list(files)
-        self.file_type = file_type  # "PDF" or "Word"
+        self.file_type = file_type
         self._pre_select_key = pre_select_key
         self.setWindowTitle(self.translate_text("Ordre de fusion"))
         self.setMinimumWidth(480)
         self.setMinimumHeight(400)
         self._setup_ui()
-        # Pre-select from template
         if pre_select_key and pre_select_key in self._radio_map:
             self._radio_map[pre_select_key].setChecked(True)
 
@@ -264,7 +242,6 @@ class MergeOrderDialog(QDialog):
         lay = QVBoxLayout(self)
         lay.setSpacing(10)
 
-        # Order choice
         order_group = QGroupBox(self.translate_text("Choisir l'ordre"))
         order_lay = QVBoxLayout(order_group)
 
@@ -289,7 +266,6 @@ class MergeOrderDialog(QDialog):
 
         lay.addWidget(order_group)
 
-        # Manual reorder list
         self._manual_group = QGroupBox(self.translate_text("Réordonner les fichiers"))
         manual_lay = QVBoxLayout(self._manual_group)
         hint = QLabel(self.translate_text("Glissez-déposez pour réordonner, puis cliquez sur Fusionner."))
@@ -306,10 +282,8 @@ class MergeOrderDialog(QDialog):
         self._manual_group.setVisible(False)
         lay.addWidget(self._manual_group)
 
-        # Toggle manual list visibility
         self._radio_map["manual"].toggled.connect(self._manual_group.setVisible)
 
-        # Buttons
         btn_row = QHBoxLayout()
         merge_btn = QPushButton("🔗 " + self.translate_text("Fusionner"))
         merge_btn.setMinimumHeight(36)
@@ -361,7 +335,6 @@ class MergeOrderDialog(QDialog):
                 self._manual_list.item(i).data(Qt.UserRole)
                 for i in range(self._manual_list.count())
             ]
-        # "current" → no change, keep original order
 
         return files
 
@@ -389,42 +362,33 @@ class AppUIMixin(AppLogicMixin):
 
     def process_achievement_queue(self):
         """Process the achievement queue"""
-        # If an achievement is already displayed or the list is empty, do nothing
         if self.is_showing_achievement or not self.achievement_queue:
             return
 
-        # Lock display
         self.is_showing_achievement = True
 
-        # Recover next achievement (FIFO - First In First Out)
         next_achievement = self.achievement_queue.pop(0)
 
-        # Display popup
         self.show_achievement_popup_sequential(next_achievement)
 
     def process_rank_queue(self):
         """Display rank popups one by one, with 1s delay"""
         if self.is_showing_achievement or not self.rank_queue:
-            return  # Wait for the achievement to be fully displayed
+            return
 
         if hasattr(self, '_is_showing_rank') and self._is_showing_rank:
-            return  # Rank is showing
+            return
 
-        # Take the first rank
         rank_data = self.rank_queue.pop(0)
         self._is_showing_rank = True
 
-        # Display popup
         popup = RankPopup(rank_data, self.achievement_system, self, language=self.current_language)
         popup.set_translator(self.translation_manager)
 
-        # Connect animation ending (5s + fade-out)
         def on_rank_finished():
             self._is_showing_rank = False
-            # Schedule next after 1 sec
             QTimer.singleShot(1000, self.process_rank_queue)
 
-        # If rank popup has no signal, use 6s timer (5s display + 1s fade-out)
         QTimer.singleShot(6000, on_rank_finished)
         popup.show()
 
@@ -438,14 +402,12 @@ class AppUIMixin(AppLogicMixin):
     def on_achievement_finished(self):
         self.is_showing_achievement = False
         self.process_achievement_queue()
-        # If no more achievements → start ranks
         if not self.achievement_queue:
-            QTimer.singleShot(500, self.process_rank_queue)  # Short delay
+            QTimer.singleShot(500, self.process_rank_queue)
 
     def setup_shortcuts(self):
         """Configure keyboard shortcuts"""
 
-        # Esc: Close secondary windows
         shortcut_escape = QShortcut(QKeySequence("Esc"), self)
         shortcut_escape.activated.connect(self.close_secondary_windows)
         shortcut_word_mode = QShortcut(QKeySequence("Ctrl+W"), self)
@@ -465,41 +427,33 @@ class AppUIMixin(AppLogicMixin):
     def setup_tooltips_with_shortcuts(self):
         """Configure tooltips with keyboard shortcuts"""
 
-        # File management buttons
         self.add_files_btn.setToolTip(self.translate_text("Charger des fichiers (Ctrl+O)"))
         self.add_folder_btn.setToolTip(self.translate_text("Ajouter un dossier (Ctrl+P)"))
         self.remove_file_btn.setToolTip(self.translate_text("Supprimer les fichiers sélectionnés"))
         self.clear_all_btn.setToolTip(self.translate_text("Effacer toute la liste (Ctrl+Delete)"))
 
-        # Conversion buttons
         self.pdf_to_word_btn.setToolTip(self.translate_text("Convertir PDF en Word (Ctrl+Shift+C)"))
         self.word_to_pdf_btn.setToolTip(self.translate_text("Convertir Word en PDF (Ctrl+Shift+C)"))
         self.image_to_pdf_btn.setToolTip(self.translate_text("Convertir des images en PDF (Ctrl+Shift+C)"))
         self.more_conversions_btn.setToolTip(self.translate_text("Plus d'options de conversion (Ctrl+Shift+C)"))
 
-        # Merge buttons
         self.merge_pdf_btn.setToolTip(self.translate_text("Fusionner des fichiers PDF"))
         self.merge_word_btn.setToolTip(self.translate_text("Fusionner des documents Word"))
 
-        # Advanced buttons
         self.split_pdf_btn.setToolTip(self.translate_text("Diviser un PDF"))
         self.protect_pdf_btn.setToolTip(self.translate_text("Protéger un PDF avec mot de passe"))
         self.compress_files_btn.setToolTip(self.translate_text("Compresser des fichiers"))
 
-        # Batch buttons
         self.batch_convert_btn.setToolTip(self.translate_text("Conversion par lot"))
         self.batch_rename_btn.setToolTip(self.translate_text("Renommage par lot"))
 
-        # New features buttons
         self.dashboard_btn.setToolTip(self.translate_text("Tableau de bord et statistiques"))
         self.history_btn.setToolTip(self.translate_text("Historique des conversions (Ctrl+H)"))
         self.templates_btn.setToolTip(self.translate_text("Modèles et templates"))
         self.achievements_btn.setToolTip(self.translate_text("Succès et réalisations"))
 
-        # Settings button
         self.settings_btn.setToolTip(self.translate_text("Paramètres de l'application (Ctrl+,)"))
 
-        # Toolbar actions
         self.new_action.setToolTip(self.translate_text("Nouveau projet (Ctrl+N)"))
         self.open_action.setToolTip(self.translate_text("Ouvrir un projet existant (Ctrl+Shift+O)"))
         self.save_action.setToolTip(self.translate_text("Enregistrer le projet (Ctrl+S)"))
@@ -531,38 +485,32 @@ class AppUIMixin(AppLogicMixin):
     def launch_pdf_to_word_conversion(self):
         """Launch PDF to Word conversion"""
         print("Launching PDF -> Word conversion")
-        # Call existing method
         self.convert_pdf_to_word()
 
     def launch_word_to_pdf_conversion(self):
         """Launch Word to PDF conversion"""
         print("Launching Word -> PDF conversion")
-        # Call existing method
         self.convert_word_to_pdf()
 
     def launch_image_to_pdf_conversion(self):
         """Launch Images to PDF conversion"""
         print("Launching Images -> PDF conversion")
-        # Call existing method
         self.convert_images_to_pdf()
         
     def launch_merge_pdf(self):
         """Launch PDF merge"""
         print("Launching PDF merge")
-        # Call existing method
         self.merge_pdfs()
 
     def launch_merge_word(self):
         """Launch Word merge"""
         print("Launching Word merge")
-        # Call existing method
         self.merge_word_docs()
 
     def launch_office_optimization(self):
         """Launch file optimization for all supported types"""
         print("Launching file optimization")
 
-        # Supported extensions per category
         SUPPORTED_EXTS = {
             'office': ['.pdf', '.docx', '.doc', '.pptx', '.ppt', '.xlsx', '.xls'],
             'image':  ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.webp', '.gif'],
@@ -573,7 +521,6 @@ class AppUIMixin(AppLogicMixin):
         }
         ALL_SUPPORTED = [e for exts in SUPPORTED_EXTS.values() for e in exts]
 
-        # 1. Determine files to process
         selected_items = self.files_list_widget.selectedItems()
         files_to_process = []
 
@@ -584,12 +531,9 @@ class AppUIMixin(AppLogicMixin):
                     files_to_process.append(item.data(Qt.UserRole))
         else:
             files_to_process = self.files_list.copy()
-
-        # 2. Filter supported files (all types)
         office_files = [f for f in files_to_process
                         if Path(f).suffix.lower() in ALL_SUPPORTED]
 
-        # 3. Verify
         if not office_files:
             if selected_items:
                 msg = self.translate_text(
@@ -602,12 +546,10 @@ class AppUIMixin(AppLogicMixin):
             QMessageBox.warning(self, self.translate_text("Avertissement"), msg)
             return
         
-        # Apply default template if one is active
         _def_id, _ = self.template_manager.get_default_template("Optimisation de fichiers") if hasattr(self, 'template_manager') else (None, None)
         if _def_id:
             (self._ensure_template_manager() or object()).apply_template(_def_id, self)
 
-        # Bypass dialog if a template is active
         if hasattr(self, 'active_templates') and 'office_optimization' in self.active_templates:
             _t = self.active_templates['office_optimization']
             self.optimize_office_files(
@@ -620,7 +562,6 @@ class AppUIMixin(AppLogicMixin):
             )
             return
 
-        # Build dialog
         d = QDialog(self)
         d.setWindowTitle(self.translate_text("Optimiser les fichiers"))
         d.setMinimumWidth(430)
@@ -628,7 +569,6 @@ class AppUIMixin(AppLogicMixin):
         root.setSpacing(14)
         root.setContentsMargins(20, 20, 20, 20)
 
-        # Header: file count summary
         _ext_cat = {}
         for cat, exts in SUPPORTED_EXTS.items():
             for e in exts:
@@ -683,11 +623,10 @@ class AppUIMixin(AppLogicMixin):
 
         from PySide6.QtWidgets import QSlider
 
-        # Colors by level: I=green, II=blue, III=orange-red
         _slider_colors = {
-            0: ("#4caf82", "rgba(76,175,130,0.18)"),   # I  — High quality
-            1: ("#5b9bd5", "rgba(91,155,213,0.18)"),   # II — Balanced
-            2: ("#e07b54", "rgba(224,123,84,0.18)"),   # III — Maximum
+            0: ("#4caf82", "rgba(76,175,130,0.18)"),
+            1: ("#5b9bd5", "rgba(91,155,213,0.18)"),
+            2: ("#e07b54", "rgba(224,123,84,0.18)"),
         }
 
         def _slider_stylesheet(color, track_bg):
@@ -735,7 +674,6 @@ class AppUIMixin(AppLogicMixin):
         quality_val_lbl.setStyleSheet(
             f"font-size:12px; font-weight:600; color:{_slider_colors[1][0]}; padding:2px 0;")
 
-        # Roman numeral labels, color synchronized with theme
         tick_row = QHBoxLayout()
         tick_row.setContentsMargins(4, 0, 4, 0)
         roman_labels = []
@@ -769,7 +707,6 @@ class AppUIMixin(AppLogicMixin):
         quality_outer.addWidget(quality_val_lbl)
         root.addWidget(quality_group)
 
-        # Options checkboxes
         options_group = QGroupBox(self.translate_text("Options"))
         options_layout = QVBoxLayout(options_group)
         options_layout.setSpacing(6)
@@ -788,7 +725,6 @@ class AppUIMixin(AppLogicMixin):
             options_layout.addWidget(cb)
         root.addWidget(options_group)
 
-        # Buttons
         btn_row = QHBoxLayout()
         btn_row.setSpacing(10)
 
@@ -860,7 +796,6 @@ class AppUIMixin(AppLogicMixin):
         menubar = self.menuBar()
         menubar.clear()
 
-        # File menu
         file_menu_title = self.translate_text("&Fichier")
         file_menu = menubar.addMenu(file_menu_title)
         
@@ -918,7 +853,6 @@ class AppUIMixin(AppLogicMixin):
         quit_action.setToolTip(self.translate_text("Quitter l'application (Ctrl+Q)"))
         file_menu.addAction(quit_action)
         
-        # Edit menu
         edit_menu_title = self.translate_text("&Edition")
         edit_menu = menubar.addMenu(edit_menu_title)
         
@@ -928,7 +862,6 @@ class AppUIMixin(AppLogicMixin):
         convert_action.setToolTip(self.translate_text("Lancer la conversion des fichiers (Ctrl+Shift+C)"))
         edit_menu.addAction(convert_action)
         
-        # View menu
         view_menu_title = self.translate_text("&Affichage")
         view_menu = menubar.addMenu(view_menu_title)
         
@@ -973,7 +906,6 @@ class AppUIMixin(AppLogicMixin):
         language_action.setToolTip(self.translate_text("Changer la langue de l'interface (F3)"))
         view_menu.addAction(language_action)
         
-        # Help menu
         help_menu_title = self.translate_text("A&ide")
         help_menu = menubar.addMenu(help_menu_title)
         
@@ -1045,12 +977,10 @@ class AppUIMixin(AppLogicMixin):
         self.setCentralWidget(central_widget)
         central_widget.installEventFilter(self)
 
-        # Root layout (horizontal : sidebar + main)
         root = QHBoxLayout(central_widget)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # Sidebar
         sidebar = QWidget()
         sidebar.setFixedWidth(64)
         sidebar.setObjectName("Sidebar")
@@ -1059,14 +989,12 @@ class AppUIMixin(AppLogicMixin):
         sidebar_layout.setSpacing(0)
         sidebar_layout.setAlignment(Qt.AlignTop)
 
-        # Logo pill
         logo_lbl = QLabel("⾕")
         logo_lbl.setObjectName("LogoLabel")
         logo_lbl.setAlignment(Qt.AlignCenter)
         logo_lbl.setFixedHeight(64)
         sidebar_layout.addWidget(logo_lbl)
 
-        # Divider
         div0 = QFrame()
         div0.setFrameShape(QFrame.HLine)
         div0.setFixedHeight(1)
@@ -1100,14 +1028,12 @@ class AppUIMixin(AppLogicMixin):
 
         root.addWidget(sidebar)
 
-        # Main area
         main_area = QWidget()
         main_area.setObjectName("MainArea")
         main_col = QVBoxLayout(main_area)
         main_col.setContentsMargins(0, 0, 0, 0)
         main_col.setSpacing(0)
 
-        # Top bar
         topbar = QWidget()
         topbar.setFixedHeight(52)
         topbar.setObjectName("TopBar")
@@ -1119,7 +1045,6 @@ class AppUIMixin(AppLogicMixin):
         title_lbl.setObjectName("TitleLabel")
         topbar_layout.addWidget(title_lbl)
 
-        # Project name badge — shown when a project is loaded
         self.project_name_lbl = QLabel()
         self.project_name_lbl.setObjectName("ProjectNameLabel")
         self.project_name_lbl.setVisible(False)
@@ -1136,13 +1061,11 @@ class AppUIMixin(AppLogicMixin):
 
         main_col.addWidget(topbar)
 
-        # thin accent line under topbar
         accent_line = QFrame()
         accent_line.setFixedHeight(1)
         accent_line.setStyleSheet("background: rgba(232,255,107,0.15);")
         main_col.addWidget(accent_line)
 
-        # Content row
         content_widget = QWidget()
         content_layout = QHBoxLayout(content_widget)
         content_layout.setContentsMargins(16, 16, 16, 16)
@@ -1153,12 +1076,10 @@ class AppUIMixin(AppLogicMixin):
 
         main_col.addWidget(content_widget, 1)
 
-        # Status bar with integrated progress bar
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage(self.translate_text("Prêt - Sélectionnez des fichiers pour commencer"))
 
-        # Progress bar inside the status bar (right side, fixed width)
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
         self.progress_bar.setTextVisible(False)
@@ -1184,14 +1105,12 @@ class AppUIMixin(AppLogicMixin):
 
         root.addWidget(main_area, 1)
 
-        # Toolbar & menus
         self.create_toolbar()
         self.connect_signals()
         self.create_menu_bar()
         self.setup_shortcuts()
         self.setup_tooltips_with_shortcuts()
 
-        # Rewire nav buttons → existing methods
         self.nav_dashboard_btn.clicked.connect(self.show_dashboard)
         self.nav_history_btn.clicked.connect(self.show_history)
         self.nav_templates_btn.clicked.connect(self.show_templates)
@@ -1199,17 +1118,13 @@ class AppUIMixin(AppLogicMixin):
         self.nav_donate_btn.clicked.connect(self.show_donate)
         self.nav_settings_btn.clicked.connect(self.show_settings)
 
-        # Boot animations
         QTimer.singleShot(120, self._animate_startup)
         QTimer.singleShot(300, self._connect_button_animations)
-
-        # Global stylesheet
 
     def closeEvent(self, event):
         """Override closeEvent to save window geometry and state"""
         if self.isMaximized():
             self.config["window_maximized"] = True
-            # We keep the normal geometry intact in case the user later restores the window from maximized mode.
         else:
             self.config["window_maximized"] = False
             geom = self.geometry()
@@ -1222,12 +1137,9 @@ class AppUIMixin(AppLogicMixin):
         self.config_manager.save_config(self.config)
         super().closeEvent(event)
 
-    #  ANIMATIONS
 
     def _animate_startup(self):
         """Fade in the entire window on startup — safe, no QPainter conflict."""
-        # Animate the main window opacity (windowOpacity)
-        # instead of individual widgets to avoid QPainter conflicts
         try:
             from PySide6.QtCore import QPropertyAnimation, QEasingCurve
             self.setWindowOpacity(0.0)
@@ -1242,7 +1154,6 @@ class AppUIMixin(AppLogicMixin):
             print(f"[ANIM] Startup error: {e}")
             self.setWindowOpacity(1.0)
 
-        # Logo pulse after the window becomes visible
         QTimer.singleShot(300, self._pulse_logo)
 
     def _pulse_logo(self):
@@ -1292,7 +1203,6 @@ class AppUIMixin(AppLogicMixin):
         except Exception as e:
             print(f"[ANIM] Button connect error: {e}")
 
-    # _apply_new_stylesheet inlined into apply_modern_dark/light_theme
     def _apply_new_stylesheet(self):
         is_dark = getattr(self, 'dark_mode', True)
         if is_dark:
@@ -1373,7 +1283,7 @@ class AppUIMixin(AppLogicMixin):
             btn_violet_bg   = "rgba(124,58,237,0.12)";  btn_violet_fg= "#6d28d9"; btn_violet_border= "rgba(124,58,237,0.35)";  btn_violet_hover = "rgba(124,58,237,0.22)"
 
         self.setStyleSheet(f"""
-            /* ── Root & windows ── */
+            /* Root & windows */
             QMainWindow, QWidget#MainArea {{
                 background-color: {bg_main};
             }}
@@ -1385,7 +1295,7 @@ class AppUIMixin(AppLogicMixin):
                 background-color: {bg_topbar};
             }}
 
-            /* ── File panel (left) ── */
+            /* File panel (left) */
             QGroupBox#FilePanel {{
                 background: {file_panel_bg};
                 border: 1px solid {file_panel_border};
@@ -1406,7 +1316,7 @@ class AppUIMixin(AppLogicMixin):
                 padding: 0 6px;
             }}
 
-            /* ── Action cards (right groups) ── */
+            /* Action cards (right groups) */
             QGroupBox.ActionCard {{
                 background: {card_bg};
                 border: 1px solid {card_border};
@@ -1426,7 +1336,7 @@ class AppUIMixin(AppLogicMixin):
                 padding: 0 6px;
             }}
 
-            /* ── List widget ── */
+            /* List widget */
             QListWidget {{
                 background: {list_bg};
                 border: 1px solid {list_border};
@@ -1449,7 +1359,7 @@ class AppUIMixin(AppLogicMixin):
                 background: {list_hover};
             }}
 
-            /* ── Scrollbars ── */
+            /* Scrollbars */
             QScrollBar:vertical {{
                 background: transparent;
                 width: 6px;
@@ -1462,7 +1372,7 @@ class AppUIMixin(AppLogicMixin):
             QScrollBar::handle:vertical:hover {{ background: {list_sel_bg}; }}
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
 
-            /* ── Progress bar ── */
+            /* Progress bar */
             QProgressBar {{
                 background: transparent;
                 border: none;
@@ -1472,7 +1382,7 @@ class AppUIMixin(AppLogicMixin):
                 border-radius: 2px;
             }}
 
-            /* ── Status bar ── */
+            /* Status bar */
             QStatusBar {{
                 background: {sb_bg};
                 color: {sb_fg};
@@ -1481,7 +1391,7 @@ class AppUIMixin(AppLogicMixin):
                 border-top: 1px solid {sb_border};
             }}
 
-            /* ── Tooltip ── */
+            /* Tooltip */
             QToolTip {{
                 background: {tip_bg};
                 color: {tip_fg};
@@ -1491,7 +1401,7 @@ class AppUIMixin(AppLogicMixin):
                 font-size: 11px;
             }}
 
-            /* ── Menu bar ── */
+            /* Menu bar */
             QMenuBar {{
                 background: {bg_topbar};
                 color: {nav_btn_color};
@@ -1511,7 +1421,7 @@ class AppUIMixin(AppLogicMixin):
             QMenu::item:selected {{ background: {nav_btn_hover_bg}; color: {nav_btn_hover_color}; }}
             QMenu::separator {{ height: 1px; background: {card_border}; margin: 4px 0; }}
 
-            /* ── Toolbar ── */
+            /* Toolbar */
             QToolBar {{
                 background: {bg_topbar};
                 border-bottom: 1px solid {sidebar_border};
@@ -1527,7 +1437,7 @@ class AppUIMixin(AppLogicMixin):
             }}
             QToolBar QToolButton:hover {{ background: {nav_btn_hover_bg}; color: {nav_btn_hover_color}; }}
 
-            /* ── Dialogs ── */
+            /* Dialogs */
             QDialog {{
                 background: {bg_main};
                 color: {list_fg};
@@ -1535,7 +1445,7 @@ class AppUIMixin(AppLogicMixin):
             QLabel {{ color: {list_fg}; background: transparent; }}
             QCheckBox {{ color: {nav_btn_color}; spacing: 8px; font-size: 12px; }}
 
-            /* ── Action cards ── */
+            /* Action cards */
             QGroupBox#ActionCard {{
                 background: {card_bg};
                 border: 1px solid {card_border};
@@ -1555,7 +1465,7 @@ class AppUIMixin(AppLogicMixin):
                 padding: 0 6px;
             }}
 
-            /* ── File buttons ── */
+            /* File buttons */
             QPushButton#BtnFileAdd, QPushButton#BtnFileFolder {{
                 background: {btn_blue_bg};
                 color: {btn_blue_fg};
@@ -1581,7 +1491,7 @@ class AppUIMixin(AppLogicMixin):
                 background: {btn_red_hover};
             }}
 
-            /* ── Action buttons ── */
+            /* Action buttons */
             QPushButton#BtnBlue {{
                 background: {btn_blue_bg};
                 color: {btn_blue_fg};
@@ -1665,7 +1575,6 @@ class AppUIMixin(AppLogicMixin):
         from PySide6.QtGui import QMouseEvent
         
         if event.type() == QEvent.MouseButtonPress and isinstance(event, QMouseEvent):
-            # Check if click is on an empty space (not on interactive widgets)
             if self._is_empty_space_click(source, event):
                 self.files_list_widget.clearSelection()
                 return True
@@ -1674,7 +1583,6 @@ class AppUIMixin(AppLogicMixin):
 
     def _is_empty_space_click(self, source, event):
         """Check if the click is on an empty space of the application"""
-        # List of interactive widgets to exclude
         interactive_widgets = (
             QPushButton, QCheckBox, QRadioButton, QComboBox,
             QSpinBox, QLineEdit, QTextEdit, QTableWidget,
@@ -1682,17 +1590,14 @@ class AppUIMixin(AppLogicMixin):
             QStatusBar, QProgressBar, QTabWidget, QGroupBox
         )
         
-        # If the click is on an interactive widget, do not deselect
         if isinstance(source, interactive_widgets):
             return False
         
-        # If the click is directly on an item in the list, do not deselect
         if source == self.files_list_widget:
             item = self.files_list_widget.itemAt(event.pos())
             if item is not None:
                 return False
         
-        # If empty space, we can deselect
         return True
 
     def translate_text(self, text):
@@ -1705,7 +1610,6 @@ class AppUIMixin(AppLogicMixin):
         left_layout.setContentsMargins(10, 18, 10, 10)
         left_layout.setSpacing(10)
 
-        # Drop hint label
         hint_lbl = QLabel(self.translate_text("Fichiers sélectionnés (glissez-déposez depuis l'explorateur):"))
         hint_lbl.setObjectName("HintLabel")
         hint_lbl.setAlignment(Qt.AlignCenter)
@@ -1728,7 +1632,6 @@ class AppUIMixin(AppLogicMixin):
 
         left_layout.addWidget(scroll_area, 1)
 
-        # File action buttons — styled via _apply_new_stylesheet (theme-aware)
         def _file_btn(label, name):
             b = QPushButton(label)
             b.setMinimumHeight(34)
@@ -1755,7 +1658,6 @@ class AppUIMixin(AppLogicMixin):
         right_layout.setSpacing(10)
         right_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Helper: create an action card — styled via _apply_new_stylesheet
         def _card(title):
             g = QGroupBox(title.upper())
             g.setObjectName("ActionCard")
@@ -1764,14 +1666,12 @@ class AppUIMixin(AppLogicMixin):
             lay.setSpacing(8)
             return g, lay
 
-        # Helper: button factory — objectName carries color class
         def _btn(label, name, h=36):
             b = QPushButton(label)
             b.setMinimumHeight(h)
             b.setObjectName(name)
             return b
 
-        # Conversion card
         conv_card, conv_lay = _card(self.translate_text("Conversion de Fichiers"))
 
         ocr_row = QHBoxLayout()
@@ -1800,7 +1700,6 @@ class AppUIMixin(AppLogicMixin):
         conv_lay.addWidget(self.more_conversions_btn)
         right_layout.addWidget(conv_card)
 
-        # Fusion card
         merge_card, merge_lay = _card(self.translate_text("Fusion de Fichiers"))
         merge_row = QHBoxLayout()
         merge_row.setSpacing(7)
@@ -1811,7 +1710,6 @@ class AppUIMixin(AppLogicMixin):
         merge_lay.addLayout(merge_row)
         right_layout.addWidget(merge_card)
 
-        # Advanced card
         adv_card, adv_lay = _card(self.translate_text("Fonctionnalités Avancées"))
         adv_row = QHBoxLayout()
         adv_row.setSpacing(7)
@@ -1823,7 +1721,6 @@ class AppUIMixin(AppLogicMixin):
         adv_lay.addLayout(adv_row)
         right_layout.addWidget(adv_card)
 
-        # Batch card
         batch_card, batch_lay = _card(self.translate_text("Opérations par Lots"))
         batch_row = QHBoxLayout()
         batch_row.setSpacing(7)
@@ -1833,16 +1730,13 @@ class AppUIMixin(AppLogicMixin):
         batch_row.addWidget(self.batch_rename_btn)
         batch_lay.addLayout(batch_row)
         right_layout.addWidget(batch_card)
-
         right_layout.addStretch()
 
-        # Settings button (bottom)
         self.settings_btn = QPushButton("⚙  " + self.translate_text("Paramètres"))
         self.settings_btn.setMinimumHeight(38)
         self.settings_btn.setObjectName("BtnSettings")
         right_layout.addWidget(self.settings_btn)
 
-        # Rewire dashboard/history/templates/achievements buttons
         self.dashboard_btn    = self.nav_dashboard_btn
         self.history_btn      = self.nav_history_btn
         self.templates_btn    = self.nav_templates_btn
@@ -1957,7 +1851,6 @@ class AppUIMixin(AppLogicMixin):
                 if file_path and os.path.exists(file_path):
                     self.preview_dialog = PreviewDialog(file_path, self, self.current_language)
                     self.preview_dialog.show()
-                    # Record for achievement
                     self.achievement_system.record_preview()
                 else:
                     QMessageBox.warning(
@@ -2012,7 +1905,6 @@ class AppUIMixin(AppLogicMixin):
         notes_input.setFixedHeight(88)
         lay.addWidget(notes_input)
 
-        # Read-only info
         created = self._project_data.get('created_at', '')[:16].replace('T', '  ')
         modified = self._project_data.get('modified_at', '')[:16].replace('T', '  ')
         if created:
@@ -2053,7 +1945,6 @@ class AppUIMixin(AppLogicMixin):
             self._project_data['name']  = new_name
             self._project_data['notes'] = new_notes
             self._update_project_label()
-            # Auto-save if project is already saved to disk
             if self.current_project:
                 self._save_project_to(self.current_project)
 
@@ -2078,7 +1969,6 @@ class AppUIMixin(AppLogicMixin):
                 self._project_data = data
                 self._project_data['modified_at'] = _dt.now().isoformat(timespec='seconds')
             else:
-                # Legacy plain-text format — migrate silently
                 all_paths = [line for line in raw.splitlines() if line.strip()]
                 now = _dt.now().isoformat(timespec='seconds')
                 self._project_data = {
@@ -2164,7 +2054,6 @@ class AppUIMixin(AppLogicMixin):
             TemplateManager, EnhancedTemplatesDialog = _get_TemplateClasses()
             self.templates_dialog = EnhancedTemplatesDialog(self.template_manager, self, self.current_language)
             
-            # Connect template_applied signal
             self.templates_dialog.template_applied.connect(self.on_template_applied)
             
             self.templates_dialog.show()
@@ -2174,7 +2063,7 @@ class AppUIMixin(AppLogicMixin):
 
     def on_template_applied(self, template):
         """Called when a template is applied"""
-        # Display message in status bar
+
         message = self.translate_text(f"Template '{template['name']}' appliqué")
         if template['type'] == self.translate_text("Fusion PDF"):
             message += self.translate_text(" - Ajoutez des fichiers PDF et lancez la fusion")
@@ -2183,7 +2072,6 @@ class AppUIMixin(AppLogicMixin):
         
         self.status_bar.showMessage(message)
         
-        # Update interface if necessary
         if template['type'] == self.translate_text("Optimisation de fichiers"):
             message += self.translate_text(" - Lancez Optimiser les fichiers pour utiliser ces paramètres")
 
@@ -2201,7 +2089,6 @@ class AppUIMixin(AppLogicMixin):
         if dialog.exec() == QDialog.Accepted:
             name = dialog.textValue().strip()
             if name:
-                # Create a PDF→Word conversion template
                 config = (self._ensure_template_manager() or object()).create_template_from_current_settings(
                     name,
                     self.translate_text("Conversion PDF→Word"),
@@ -2216,7 +2103,6 @@ class AppUIMixin(AppLogicMixin):
 
     def show_achievements(self):
             """Display the achievements interface."""
-            # Security check for PySide6 (avoid runtime error if the window is closed/destroyed)
             try:
                 if self.achievements_dialog is not None and self.achievements_dialog.isVisible():
                     self.achievements_dialog.raise_()
@@ -2225,7 +2111,6 @@ class AppUIMixin(AppLogicMixin):
             except RuntimeError:
                 self.achievements_dialog = None
 
-            # Create and display only if it doesn't exist or has been closed
             self.achievements_dialog = AchievementsUI(
                 self.achievement_system,
                 self,
@@ -2376,12 +2261,10 @@ class AppUIMixin(AppLogicMixin):
                                 self.translate_text("Aucun fichier à sauvegarder dans le projet"))
             return
 
-        # If a project is already open/loaded, overwrite directly without a dialog
         if self.current_project and os.path.exists(self.current_project):
             self._save_project_to(self.current_project)
             return
 
-        # Otherwise (new project) — ask for name and location
         file_path, _ = QFileDialog.getSaveFileName(
             self, self.translate_text("Sauvegarder le projet"), "",
             self.translate_text("Projets File Converter (*.fcproj)"))
@@ -2403,7 +2286,6 @@ class AppUIMixin(AppLogicMixin):
         data.setdefault('created_at', now)
         data['modified_at'] = now
 
-        # Rebuild file entries preserving existing metadata
         existing_entries = {
             (e['path'] if isinstance(e, dict) else e): (e if isinstance(e, dict) else {})
             for e in data.get('files', [])
@@ -2476,7 +2358,6 @@ class AppUIMixin(AppLogicMixin):
         title_label.setStyleSheet("font-weight: bold; font-size: 14px; padding: 10px;")
         layout.addWidget(title_label)
         
-        # Option 1: Add the folder itself (for compression)
         option1_btn = QPushButton("📦 " + self.translate_text("Ajouter le dossier (pour compression)"))
         option1_btn.setMinimumHeight(45)
 
@@ -2502,7 +2383,6 @@ class AppUIMixin(AppLogicMixin):
 
         option1_btn.setToolTip(self.translate_text("Ajoute le dossier en tant qu'élément unique pour la compression"))
         
-        # Option 2: Add folder content
         option2_btn = QPushButton("📄 " + self.translate_text("Ajouter le contenu du dossier"))
         option2_btn.setMinimumHeight(45)
 
@@ -2556,7 +2436,6 @@ class AppUIMixin(AppLogicMixin):
         layout.addSpacing(20)
         layout.addWidget(cancel_btn)
         
-        # Connect signals
         option1_btn.clicked.connect(lambda: self.add_folder_as_item(dialog))
         option2_btn.clicked.connect(lambda: self.add_folder_contents(dialog))
         cancel_btn.clicked.connect(dialog.reject)
@@ -2570,14 +2449,11 @@ class AppUIMixin(AppLogicMixin):
         
         folder = QFileDialog.getExistingDirectory(self, self.translate_text("Sélectionner un dossier à ajouter"))
         if folder:
-            # Add folder itself to the list
             self.files_list.append(folder)
             
-            # Create special item for folder with custom icon
             folder_name = Path(folder).name
             icon = self.get_file_icon(folder)
 
-            # Calculate size before item creation so delegate can display it
             file_count = sum(len(files) for _, _, files in os.walk(folder))
             folder_size = self.calculate_folder_size(folder)
 
@@ -2597,11 +2473,9 @@ class AppUIMixin(AppLogicMixin):
             
             item.setToolTip(tooltip)
             
-            # Apply blue style for folders
             item.setForeground(QColor(0, 85, 255))
             item.setFont(QFont("Arial", 10, QFont.Bold))
             
-            # Store type for future reference
             item.setData(Qt.UserRole + 1, "folder")
             item.setData(Qt.UserRole + 2, file_count)
             item.setData(Qt.UserRole + 3, folder_size)
@@ -2658,17 +2532,14 @@ class AppUIMixin(AppLogicMixin):
         }
         files = []
         
-        # Browse recursively to obtain all files
         for root, dirs, filenames in os.walk(folder):
             for filename in filenames:
                 file_path = os.path.join(root, filename)
                 file_ext = Path(file_path).suffix.lower()
                 
-                # Check extension
                 if file_ext in supported_extensions:
                     files.append(file_path)
         
-        # Filter only new files
         new_files = [f for f in files if f not in self.files_list]
         if not new_files:
             return
@@ -2677,7 +2548,6 @@ class AppUIMixin(AppLogicMixin):
 
         start_index = self.files_list_widget.count() + 1
         
-        # Add each file to interface with numbering
         for i, file_path in enumerate(new_files):
             display_name = Path(file_path).name
             number = start_index + i
@@ -2686,12 +2556,10 @@ class AppUIMixin(AppLogicMixin):
             item = QListWidgetItem(numbered_text)
             item.setData(Qt.UserRole, file_path)
             
-            # Manage icon
             icon = self.get_file_icon(file_path)
             if isinstance(icon, QIcon):
                 item.setIcon(icon)
             else:
-                # If string (emoji/text), insert after number
                 item.setText(f"{number} {icon} {display_name}")
             
             self.files_list_widget.addItem(item)
@@ -2702,7 +2570,6 @@ class AppUIMixin(AppLogicMixin):
         """Add files or folders to the list with numbering"""
         new_files = []
         for file in files:
-            # .fcproj are project files, never regular convertible files
             if str(file).lower().endswith('.fcproj'):
                 continue
             if file not in self.files_list:
@@ -2847,7 +2714,6 @@ class AppUIMixin(AppLogicMixin):
                                 self.translate_text("Aucun fichier valide sélectionné"))
             return
         
-        # Adapted confirmation message
         if folder_count > 0:
             template = self.translate_text("confirm_remove_files_with_folders")
             message = template.format(folder_count, file_count)
@@ -2855,18 +2721,15 @@ class AppUIMixin(AppLogicMixin):
             template = self.translate_text("confirm_remove_files_only")
             message = template.format(file_count)
         
-        # Create custom instance for QMessageBox
         msg_box = QMessageBox(self)
         msg_box.setWindowTitle(self.translate_text("Confirmation"))
         msg_box.setText(message)
         msg_box.setIcon(QMessageBox.Question)
 
-        # Create custom buttons
         yes_button = msg_box.addButton(QMessageBox.Yes)
         no_button = msg_box.addButton(QMessageBox.No)
         msg_box.setDefaultButton(no_button)
 
-        # Apply CSS styles directly to buttons
         yes_button.setStyleSheet("""
             QPushButton {
                 background-color: #28a745;
@@ -2900,7 +2763,6 @@ class AppUIMixin(AppLogicMixin):
             }
         """)
 
-        # Display and wait for response
         msg_box.exec()
 
         if msg_box.clickedButton() == yes_button:
@@ -2980,11 +2842,9 @@ class AppUIMixin(AppLogicMixin):
         msg_box.exec()
         
         if msg_box.clickedButton() == yes_button:
-            # Clear list and widget
             self.files_list.clear()
             self.files_list_widget.clear()
             
-            # Update counter
             self.update_file_counter()
             self.status_bar.showMessage(self.translate_text("Liste de fichiers effacée"))
             self.animate_clear_button()
@@ -3031,8 +2891,6 @@ class AppUIMixin(AppLogicMixin):
             
             self.file_counter.setText(text)
 
-        # Subtle flash via opacity only — do not touch the stylesheet
-        # to let the global theme (apply_light/dark_theme) manage the color
         try:
             from PySide6.QtWidgets import QGraphicsOpacityEffect
             effect = QGraphicsOpacityEffect(self.file_counter)
@@ -3052,7 +2910,7 @@ class AppUIMixin(AppLogicMixin):
         if dialog.exec() != QDialog.Accepted:
             return
 
-        rename_plan = dialog.get_rename_plan()  # [(old_path, new_name), ...]
+        rename_plan = dialog.get_rename_plan()
 
         start_time = datetime.now()
         total_size = sum(os.path.getsize(f) for f in self.files_list if os.path.exists(f))
@@ -3104,18 +2962,15 @@ class AppUIMixin(AppLogicMixin):
     def _toggle_theme_actual(self):
         self.config["use_system_theme"] = False
         self.config_manager.save_config(self.config)
-        # Record time in dark mode
         if self.dark_mode:
-            # If just switch to dark mode, start timer
             self.dark_mode_timer_start = time.time()
         else:
             # If leave dark, record time
             if self.dark_mode_timer_start is not None:
-                elapsed = (time.time() - self.dark_mode_timer_start) / 60  # In minutes
+                elapsed = (time.time() - self.dark_mode_timer_start) / 60
                 self.achievement_system.add_dark_mode_time(elapsed)
                 self.dark_mode_timer_start = None
         
-        # Switch theme
         self.dark_mode = not self.dark_mode
         if self.dark_mode:
             self.apply_modern_dark_theme()
@@ -3127,8 +2982,6 @@ class AppUIMixin(AppLogicMixin):
         self.config["dark_mode"] = self.dark_mode
         self.config_manager.save_config(self.config)
 
-        # Resync the ⾕ logo color — it may carry an inline style from _pulse_logo
-        # that overrides the global stylesheet, so we force it explicitly here.
         logo = self.findChild(QLabel, "LogoLabel")
         if logo:
             logo_color = "#e8ff6b" if self.dark_mode else "#2d2dc8"
@@ -3143,7 +2996,6 @@ class AppUIMixin(AppLogicMixin):
         """Update dark mode time"""
         if self.dark_mode:
             if self.dark_mode_timer_start is None:
-                # Initialize timer if not initialized
                 self.dark_mode_timer_start = time.time()
             else:
                 elapsed = (time.time() - self.dark_mode_timer_start) / 60
@@ -3155,7 +3007,6 @@ class AppUIMixin(AppLogicMixin):
         for lang in self.translation_manager.get_available_languages():
             if lang["code"] == code:
                 name = lang["name"]
-                # Flag emoji for built-in languages
                 if code == "fr":
                     return f"🇫🇷 {name}"
                 elif code == "en":
@@ -3177,7 +3028,6 @@ class AppUIMixin(AppLogicMixin):
         self.current_language = new_language
         self.translation_manager.set_language(new_language)
         self.system_notifier.set_language(new_language)
-        # Update ASCII art language in the drop-zone widget
         if hasattr(self, 'files_list_widget'):
             self.files_list_widget.set_language(new_language)
 
@@ -3227,7 +3077,7 @@ class AppUIMixin(AppLogicMixin):
 
     def apply_modern_light_theme(self):
         light_style = """
-        /* ── Base ── */
+        /* Base */
         QMainWindow, QWidget {
             background-color: #f6f8fa;
             color: #1f2328;
@@ -3240,7 +3090,7 @@ class AppUIMixin(AppLogicMixin):
             border: none;
         }
 
-        /* ── GroupBox ── */
+        /* GroupBox */
         QGroupBox {
             font-weight: 700;
             font-size: 13px;
@@ -3275,7 +3125,7 @@ class AppUIMixin(AppLogicMixin):
             color: #8c959f;
         }
 
-        /* ── Inputs ── */
+        /* Inputs */
         QLineEdit, QSpinBox, QDoubleSpinBox, QTextEdit, QPlainTextEdit {
             background-color: #ffffff;
             color: #1f2328;
@@ -3292,7 +3142,7 @@ class AppUIMixin(AppLogicMixin):
         }
         QLineEdit:hover, QSpinBox:hover { border: 1px solid #8c959f; }
 
-        /* ── ComboBox ── */
+        /* ComboBox */
         QComboBox {
             background-color: #ffffff;
             color: #1f2328;
@@ -3323,7 +3173,7 @@ class AppUIMixin(AppLogicMixin):
             outline: none;
         }
 
-        /* ── DateEdit ── */
+        /* DateEdit */
         QDateEdit {
             background-color: #ffffff;
             color: #1f2328;
@@ -3336,7 +3186,7 @@ class AppUIMixin(AppLogicMixin):
         QDateEdit:focus { border: 1px solid #0969da; }
         QDateEdit::drop-down { border: none; width: 24px; }
 
-        /* ── ListWidget ── */
+        /* ListWidget */
         QListWidget {
             background-color: #ffffff;
             color: #1f2328;
@@ -3357,7 +3207,7 @@ class AppUIMixin(AppLogicMixin):
             font-weight: 600;
         }
 
-        /* ── Table ── */
+        /* Table */
         QTableWidget {
             background-color: #ffffff;
             color: #1f2328;
@@ -3388,7 +3238,7 @@ class AppUIMixin(AppLogicMixin):
         }
         QHeaderView::section:first { border-top-left-radius: 8px; }
 
-        /* ── Tabs ── */
+        /* Tabs */
         QTabWidget::pane {
             background: #ffffff;
             border: 1px solid #d0d7de;
@@ -3417,7 +3267,7 @@ class AppUIMixin(AppLogicMixin):
             color: #1f2328;
         }
 
-        /* ── CheckBox / RadioButton ── */
+        /* CheckBox / RadioButton */
         QCheckBox, QRadioButton {
             color: #1f2328;
             spacing: 8px;
@@ -3443,7 +3293,7 @@ class AppUIMixin(AppLogicMixin):
             border-color: #d0d7de;
         }
 
-        /* ── ProgressBar ── */
+        /* ProgressBar */
         QProgressBar {
             border: 1px solid #d0d7de;
             border-radius: 8px;
@@ -3463,7 +3313,7 @@ class AppUIMixin(AppLogicMixin):
             color: #0969da;
         }
 
-        /* ── Scrollbars ── */
+        /* Scrollbars */
         QScrollBar:vertical {
             background: #f6f8fa;
             width: 8px; margin: 0; border: none;
@@ -3490,7 +3340,7 @@ class AppUIMixin(AppLogicMixin):
             background: transparent;
         }
 
-        /* ── Toolbar ── */
+        /* Toolbar */
         QToolBar {
             background-color: #eaeef2;
             border: none;
@@ -3508,7 +3358,7 @@ class AppUIMixin(AppLogicMixin):
         QToolBar QToolButton:hover   { background: #d0d7de; }
         QToolBar QToolButton:pressed { background: #b8c0cc; }
 
-        /* ── StatusBar ── */
+        /* StatusBar */
         QStatusBar {
             background-color: #eaeef2;
             color: #57606a;
@@ -3516,7 +3366,7 @@ class AppUIMixin(AppLogicMixin):
             border-top: 1px solid #d0d7de;
         }
 
-        /* ── Tooltip ── */
+        /* Tooltip */
         QToolTip {
             background-color: #1f2328;
             color: #f0f6fc;
@@ -3526,14 +3376,14 @@ class AppUIMixin(AppLogicMixin):
             font-size: 12px;
         }
 
-        /* ── Splitter ── */
+        /* Splitter */
         QSplitter::handle {
             background: #d0d7de;
             width: 1px;
             height: 1px;
         }
 
-        /* ── MenuBar / Menu ── */
+        /* MenuBar / Menu */
         QMenuBar {
             background-color: #f6f8fa;
             color: #1f2328;
@@ -3552,17 +3402,17 @@ class AppUIMixin(AppLogicMixin):
         QMenu::item:selected { background-color: #0969da18; color: #0550ae; }
         QMenu::separator { height: 1px; background: #d0d7de; margin: 4px 0; }
 
-        /* ── Dialog ── */
+        /* Dialog */
         QDialog {
             background-color: #ffffff;
             color: #1f2328;
             border-radius: 12px;
         }
 
-        /* ── Label ── */
+        /* Label */
         QLabel { color: #1f2328; background: transparent; }
 
-        /* ── MessageBox Buttons ── */
+        /* MessageBox Buttons */
         QMessageBox QPushButton {
             padding: 8px 12px;
             min-width: 10px;
@@ -3571,7 +3421,7 @@ class AppUIMixin(AppLogicMixin):
         """
         light_style += """
 
-        /* ══ NEW UI — structure (theme-independent) ══ */
+        /* NEW UI — structure (theme-independent) */
         QWidget#Sidebar {
             border-right: 1px solid rgba(128,128,128,0.15);
         }
@@ -3615,7 +3465,7 @@ class AppUIMixin(AppLogicMixin):
             font-size: 12px;
         }
 
-        /* ══ NEW UI — LIGHT palette ══ */
+        /* NEW UI — LIGHT palette */
         QPushButton#NavBtn {
             font-size: 20px; background: transparent; border: none;
             border-radius: 12px; color: rgba(0,0,0,0.40); margin: 4px 8px;
@@ -3681,7 +3531,7 @@ class AppUIMixin(AppLogicMixin):
             font-family: 'Segoe UI', 'SF Pro Display', Arial, sans-serif; letter-spacing: 0.3px;
         }
         QPushButton#BtnMoreConv:hover { background: rgba(80,80,220,0.20); }
-        /* Paramètres */
+        /* Parametres */
         QPushButton#BtnSettings {
             background: rgba(0,0,0,0.06); color: rgba(0,0,0,0.60);
             border: 1px solid rgba(0,0,0,0.12);
@@ -3736,7 +3586,7 @@ class AppUIMixin(AppLogicMixin):
 
     def apply_modern_dark_theme(self):
         dark_style = """
-        /* ── Base ── */
+        /* Base */
         QMainWindow, QWidget {
             background-color: #0d1117;
             color: #e6edf3;
@@ -3749,7 +3599,7 @@ class AppUIMixin(AppLogicMixin):
             border: none;
         }
 
-        /* ── GroupBox ── */
+        /* GroupBox */
         QGroupBox {
             font-weight: 700;
             font-size: 13px;
@@ -3792,7 +3642,7 @@ class AppUIMixin(AppLogicMixin):
             border-color: #21262d;
         }
 
-        /* ── Inputs ── */
+        /* Inputs */
         QLineEdit, QSpinBox, QDoubleSpinBox, QTextEdit, QPlainTextEdit {
             background-color: #0d1117;
             color: #e6edf3;
@@ -3808,7 +3658,7 @@ class AppUIMixin(AppLogicMixin):
         }
         QLineEdit:hover, QSpinBox:hover { border: 1px solid #484f58; }
 
-        /* ── ComboBox ── */
+        /* ComboBox */
         QComboBox {
             background-color: #21262d;
             color: #e6edf3;
@@ -3839,7 +3689,7 @@ class AppUIMixin(AppLogicMixin):
             outline: none;
         }
 
-        /* ── DateEdit ── */
+        /* DateEdit */
         QDateEdit {
             background-color: #21262d;
             color: #e6edf3;
@@ -3852,7 +3702,7 @@ class AppUIMixin(AppLogicMixin):
         QDateEdit:focus { border: 1px solid #388bfd; }
         QDateEdit::drop-down { border: none; width: 24px; }
 
-        /* ── ListWidget ── */
+        /* ListWidget */
         QListWidget {
             background-color: #161b22;
             color: #e6edf3;
@@ -3873,7 +3723,7 @@ class AppUIMixin(AppLogicMixin):
             font-weight: 600;
         }
 
-        /* ── Table ── */
+        /* Table */
         QTableWidget {
             background-color: #161b22;
             color: #e6edf3;
@@ -3903,7 +3753,7 @@ class AppUIMixin(AppLogicMixin):
             letter-spacing: 0.4px;
         }
 
-        /* ── Tabs ── */
+        /* Tabs */
         QTabWidget::pane {
             background: #161b22;
             border: 1px solid #30363d;
@@ -3932,7 +3782,7 @@ class AppUIMixin(AppLogicMixin):
             color: #c9d1d9;
         }
 
-        /* ── CheckBox / RadioButton ── */
+        /* CheckBox / RadioButton */
         QCheckBox, QRadioButton {
             color: #e6edf3;
             spacing: 8px;
@@ -3958,7 +3808,7 @@ class AppUIMixin(AppLogicMixin):
             border-color: #30363d;
         }
 
-        /* ── ProgressBar ── */
+        /* ProgressBar */
         QProgressBar {
             border: 1px solid #30363d;
             border-radius: 8px;
@@ -3978,7 +3828,7 @@ class AppUIMixin(AppLogicMixin):
             color: #79c0ff;
         }
 
-        /* ── Scrollbars ── */
+        /* Scrollbars */
         QScrollBar:vertical {
             background: #0d1117;
             width: 8px; margin: 0; border: none;
@@ -4005,7 +3855,7 @@ class AppUIMixin(AppLogicMixin):
             background: transparent;
         }
 
-        /* ── Toolbar ── */
+        /* Toolbar */
         QToolBar {
             background-color: #161b22;
             border: none;
@@ -4023,7 +3873,7 @@ class AppUIMixin(AppLogicMixin):
         QToolBar QToolButton:hover   { background: #30363d; }
         QToolBar QToolButton:pressed { background: #21262d; }
 
-        /* ── StatusBar ── */
+        /* StatusBar */
         QStatusBar {
             background-color: #161b22;
             color: #8b949e;
@@ -4031,7 +3881,7 @@ class AppUIMixin(AppLogicMixin):
             border-top: 1px solid #30363d;
         }
 
-        /* ── Tooltip ── */
+        /* Tooltip */
         QToolTip {
             background-color: #1e2330;
             color: #e6edf3;
@@ -4041,14 +3891,14 @@ class AppUIMixin(AppLogicMixin):
             font-size: 12px;
         }
 
-        /* ── Splitter ── */
+        /* Splitter */
         QSplitter::handle {
             background: #30363d;
             width: 1px;
             height: 1px;
         }
 
-        /* ── MenuBar / Menu ── */
+        /* MenuBar / Menu */
         QMenuBar {
             background-color: #161b22;
             color: #e6edf3;
@@ -4067,17 +3917,17 @@ class AppUIMixin(AppLogicMixin):
         QMenu::item:selected { background-color: #388bfd22; color: #79c0ff; }
         QMenu::separator { height: 1px; background: #30363d; margin: 4px 0; }
 
-        /* ── Dialog ── */
+        /* Dialog */
         QDialog {
             background-color: #161b22;
             color: #e6edf3;
             border-radius: 12px;
         }
 
-        /* ── Label ── */
+        /* Label */
         QLabel { color: #e6edf3; background: transparent; }
 
-        /* ── MessageBox Buttons ── */
+        /* MessageBox Buttons */
         QMessageBox QPushButton {
             padding: 8px 12px;
             min-width: 10px;
@@ -4086,7 +3936,7 @@ class AppUIMixin(AppLogicMixin):
         """
         dark_style += """
 
-        /* ══ NEW UI — structure (theme-independent) ══ */
+        /* NEW UI — structure (theme-independent) */
         QWidget#Sidebar {
             border-right: 1px solid rgba(128,128,128,0.15);
         }
@@ -4120,7 +3970,7 @@ class AppUIMixin(AppLogicMixin):
             font-size: 12px;
         }
 
-        /* ══ NEW UI — DARK palette ══ */
+        /* NEW UI — DARK palette */
         QPushButton#NavBtn {
             font-size: 20px; background: transparent; border: none;
             border-radius: 12px; color: rgba(255,255,255,0.45); margin: 4px 8px;

@@ -44,10 +44,6 @@ from PySide6.QtGui import QColor
 from datetime import datetime
 from converter import AdvancedDatabaseManager
 
-# matplotlib lazy module-level references
-# matplotlib (~40 MB) is only needed when the user opens the dashboard window.
-# We defer the actual import to _ensure_matplotlib(), called once from
-# StatisticsDashboard.__init__(), so it never loads at app startup.
 FigureCanvas = None
 Figure       = None
 plt          = None
@@ -58,7 +54,7 @@ def _ensure_matplotlib():
     """Import matplotlib on first use and populate module-level references."""
     global FigureCanvas, Figure, plt, mdates, animation
     if FigureCanvas is not None:
-        return  # already loaded
+        return
     import matplotlib
     matplotlib.use('Qt5Agg')
     from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as _FigureCanvas
@@ -112,7 +108,6 @@ class _AdvDbProxy:
     def __getattr__(self, name):
         return getattr(self._db, name)
 
-#  Fill bar widget used inside stat cards
 
 class _FillBar(QWidget):
     """A thin bar that fills left-to-right with a shimmer sweep on hover."""
@@ -126,19 +121,16 @@ class _FillBar(QWidget):
         self.setFixedHeight(4)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
-        # fill animation
         self._fill_timer = QTimer(self)
         self._fill_timer.setInterval(12)
         self._fill_timer.timeout.connect(self._fill_tick)
         self._fill_target = 0.0
         self._fill_speed  = 0.055
 
-        # shimmer loop (only while hovered)
         self._shimmer_timer = QTimer(self)
         self._shimmer_timer.setInterval(14)
         self._shimmer_timer.timeout.connect(self._shimmer_tick)
 
-    # public control
     def animate_in(self):
         self._fill_target = 1.0
         if not self._fill_timer.isActive():
@@ -152,14 +144,12 @@ class _FillBar(QWidget):
         if not self._fill_timer.isActive():
             self._fill_timer.start()
 
-    # animation ticks
     def _fill_tick(self):
         diff = self._fill_target - self._fill
         if abs(diff) < 0.005:
             self._fill = self._fill_target
             self._fill_timer.stop()
         else:
-            # ease: faster at start, slower at end
             self._fill += diff * 0.14
         self.update()
 
@@ -167,7 +157,6 @@ class _FillBar(QWidget):
         self._shimmer = (self._shimmer + 0.022) % 1.2
         self.update()
 
-    # painting
     def paintEvent(self, event):
         from PySide6.QtGui import QPainter, QLinearGradient, QBrush, QPen, QColor
         p = QPainter(self)
@@ -176,7 +165,6 @@ class _FillBar(QWidget):
         w, h = self.width(), self.height()
         r = h // 2
 
-        # track (background)
         track_color = QColor("#2d3748" if self.dark_mode else "#e2e8f0")
         p.setPen(Qt.NoPen)
         p.setBrush(QBrush(track_color))
@@ -184,7 +172,6 @@ class _FillBar(QWidget):
 
         fill_w = int(w * self._fill)
         if fill_w > 0:
-            # base fill gradient
             try:
                 ar = int(self.accent_color[1:3], 16)
                 ag = int(self.accent_color[3:5], 16)
@@ -198,7 +185,6 @@ class _FillBar(QWidget):
             p.setBrush(QBrush(grad))
             p.drawRoundedRect(0, 0, fill_w, h, r, r)
 
-            # shimmer sweep
             if self._shimmer_timer.isActive():
                 sx = int((self._shimmer - 0.15) * w)
                 sw = int(0.18 * w)
@@ -213,7 +199,6 @@ class _FillBar(QWidget):
 
         p.end()
 
-#  Animated stat card widget
 
 class AnimatedStatCard(QFrame):
     """Stat card with count-up, smooth hover glow, and fill-bar animation."""
@@ -225,7 +210,6 @@ class AnimatedStatCard(QFrame):
         self.accent_color = color
         self.dark_mode = dark_mode
 
-        # count-up
         self._start_value = 0.0
         self._target_value = 0.0
         self._full_display = "—"
@@ -237,7 +221,6 @@ class AnimatedStatCard(QFrame):
         self._count_timer = QTimer(self)
         self._count_timer.timeout.connect(self._tick)
 
-        # hover glow
         self._hover_step = 0
         self._hover_total = 14
         self._hover_in = False
@@ -251,7 +234,6 @@ class AnimatedStatCard(QFrame):
         self._build_ui()
         self._apply_card_style(t=0.0)
 
-    # UI
     def _build_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(18, 14, 18, 10)
@@ -277,12 +259,10 @@ class AnimatedStatCard(QFrame):
         )
         layout.addWidget(self._value_lbl)
 
-        # fill bar pinned to bottom
         self._fill_bar = _FillBar(self.accent_color, self.dark_mode, self)
         layout.addStretch()
         layout.addWidget(self._fill_bar)
 
-    # hover glow
     def _lerp_color(self, c1: str, c2: str, t: float) -> str:
         r1,g1,b1 = int(c1[1:3],16), int(c1[3:5],16), int(c1[5:7],16)
         r2,g2,b2 = int(c2[1:3],16), int(c2[3:5],16), int(c2[5:7],16)
@@ -346,7 +326,6 @@ class AnimatedStatCard(QFrame):
         if self._hover_step in (0, self._hover_total):
             self._hover_timer.stop()
 
-    # count-up
     def set_value(self, display_str: str, numeric_end: float, suffix: str = "", is_float: bool = False):
         self._suffix = suffix
         self._float_value = is_float
@@ -378,18 +357,16 @@ class AnimatedStatCard(QFrame):
         )
         self._apply_card_style(t=0.0)
 
-#  Main dashboard
 
 class StatisticsDashboard(QWidget):
 
     def __init__(self, db_manager, language="fr", parent=None, translation_manager=None):
         super().__init__(parent)
-        _ensure_matplotlib()  # load matplotlib lazily on first dashboard open
+        _ensure_matplotlib()
         self.db_manager = db_manager
         self.language = language
         self.parent_window = parent
 
-        # Use the shared TranslationManager if provided, otherwise create a local one
         if translation_manager is not None:
             self._translation_manager = translation_manager
         else:
@@ -399,7 +376,6 @@ class StatisticsDashboard(QWidget):
         self.setWindowTitle(self.translate_text("📊 Tableau de Bord & Statistiques"))
         self.setMinimumSize(1200, 800)
         self.setWindowFlag(Qt.FramelessWindowHint, False)
-        # Rounded window corners via stylesheet on the top-level widget
         self._dark = self._get_dark_mode()
         # DB selector state
         self._main_db   = db_manager
@@ -410,7 +386,6 @@ class StatisticsDashboard(QWidget):
         self.load_statistics()
         self._apply_global_style()
 
-    # helpers
     def _get_dark_mode(self):
         return hasattr(self.parent(), 'dark_mode') and self.parent().dark_mode
 
@@ -608,16 +583,13 @@ class StatisticsDashboard(QWidget):
             QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width: 0; }}
         """)
 
-    # layout
     def setup_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(18, 16, 18, 14)
         layout.setSpacing(14)
 
-        # DB selector bar
         layout.addWidget(self._build_db_selector_bar())
 
-        # top bar: title + action buttons
         top_bar = QHBoxLayout()
 
         title_lbl = QLabel(self.translate_text("📊 Tableau de Bord & Statistiques"))
@@ -626,14 +598,12 @@ class StatisticsDashboard(QWidget):
         )
         top_bar.addWidget(title_lbl, 1)
 
-        # Refresh button
         self.refresh_btn = QPushButton("🔄  " + self.translate_text("Rafraîchir les statistiques"))
         self.refresh_btn.clicked.connect(self._animate_refresh)
         self.refresh_btn.setStyleSheet(self._btn_style("#28a745", "#218838", "#1a6e2e"))
         self.refresh_btn.setCursor(Qt.PointingHandCursor)
         self.refresh_btn.setFixedHeight(36)
 
-        # Close button
         self.close_btn = QPushButton("✕  " + self.translate_text("Fermer"))
         self.close_btn.clicked.connect(self.close)
         self.close_btn.setStyleSheet(self._btn_style("#dc3545", "#c82333", "#a71d2a"))
@@ -645,13 +615,11 @@ class StatisticsDashboard(QWidget):
         top_bar.addWidget(self.close_btn)
         layout.addLayout(top_bar)
 
-        # divider
         divider = QFrame()
         divider.setFrameShape(QFrame.HLine)
         divider.setStyleSheet("color: #2d3748; background: #2d3748; max-height: 1px;")
         layout.addWidget(divider)
 
-        # tabs
         self.tab_widget = QTabWidget()
         self.tab_widget.setDocumentMode(True)
         self.tab_widget.currentChanged.connect(self._on_tab_changed)
@@ -687,7 +655,6 @@ class StatisticsDashboard(QWidget):
             }}
         """
 
-    # tab: overview
     def create_overview_tab(self):
         dm = self._dark
         widget = QWidget()
@@ -695,7 +662,6 @@ class StatisticsDashboard(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(16)
 
-        # stat cards row
         cards_layout = QHBoxLayout()
         cards_layout.setSpacing(14)
 
@@ -710,7 +676,6 @@ class StatisticsDashboard(QWidget):
 
         layout.addLayout(cards_layout)
 
-        # tables row
         hlayout = QHBoxLayout()
         hlayout.setSpacing(14)
 
@@ -779,7 +744,6 @@ class StatisticsDashboard(QWidget):
             t.setMaximumHeight(max_h)
         return t
 
-    # tab: charts
     def create_charts_tab(self):
         widget = QWidget()
         layout = QVBoxLayout(widget)
@@ -821,7 +785,6 @@ class StatisticsDashboard(QWidget):
         controls_layout.addStretch()
         layout.addLayout(controls_layout)
 
-        # Chart canvas inside a styled frame
         canvas_frame = QFrame()
         canvas_frame.setStyleSheet(f"""
             QFrame {{
@@ -840,14 +803,12 @@ class StatisticsDashboard(QWidget):
         layout.addWidget(canvas_frame, 1)
         return widget
 
-    # tab: details
     def create_details_tab(self):
         widget = QWidget()
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(16, 14, 16, 14)
         layout.setSpacing(12)
 
-        # Filters
         filters_frame = QFrame()
         filters_frame.setStyleSheet(f"""
             QFrame {{
@@ -878,7 +839,6 @@ class StatisticsDashboard(QWidget):
         self.end_date_edit.setMinimumWidth(160)
         self.end_date_edit.setDisplayFormat("dd/MM/yyyy")
 
-        # Fix the year spinner height in the calendar popup
         _cal_style = """
             QCalendarWidget QSpinBox {
                 min-height: 30px;
@@ -911,7 +871,6 @@ class StatisticsDashboard(QWidget):
         filters_layout.addWidget(self.apply_filters_btn)
         layout.addWidget(filters_frame)
 
-        # Table
         self.detailed_table = self._make_table([
             self.translate_text("Date/Heure"),
             self.translate_text("Opération"),
@@ -927,8 +886,8 @@ class StatisticsDashboard(QWidget):
         _hh.setSectionResizeMode(_HV.Fixed)
         for _col, _w in enumerate([155, 130, 130, 130, 90, 70, 60]):
             self.detailed_table.setColumnWidth(_col, _w)
-        _hh.setSectionResizeMode(2, _HV.Stretch)  # Source s'étire
-        _hh.setSectionResizeMode(3, _HV.Stretch)  # Cible s'étire
+        _hh.setSectionResizeMode(2, _HV.Stretch)
+        _hh.setSectionResizeMode(3, _HV.Stretch)
         layout.addWidget(self.detailed_table, 1)
 
         # Export row
@@ -954,13 +913,11 @@ class StatisticsDashboard(QWidget):
 
         return widget
 
-    # tab switching
     def _on_tab_changed(self, index):
         """Fade the canvas out, redraw, fade back in when entering Charts tab.
         On the very first visit the chart is already rendered — skip the blink."""
         if index == 1:
             if not getattr(self, '_charts_tab_visited', False):
-                # First visit: chart already visible, just mark as visited
                 self._charts_tab_visited = True
             else:
                 self._fade_chart(fade_in=False, callback=self._redraw_and_fadein)
@@ -983,7 +940,6 @@ class StatisticsDashboard(QWidget):
             anim.setEndValue(0.0)
         if callback:
             anim.finished.connect(callback)
-        # keep reference so it is not GC'd
         self._chart_anim = anim
         anim.start()
 
@@ -991,7 +947,6 @@ class StatisticsDashboard(QWidget):
         self.update_charts()
         self._fade_chart(fade_in=True)
 
-    # refresh animation
     def _animate_refresh(self):
         self.refresh_btn.setEnabled(False)
         self.refresh_btn.setText("⏳  " + self.translate_text("Rafraîchir les statistiques"))
@@ -1002,7 +957,6 @@ class StatisticsDashboard(QWidget):
         self.refresh_btn.setText("🔄  " + self.translate_text("Rafraîchir les statistiques"))
         self.refresh_btn.setEnabled(True)
 
-    # data loading
     def load_statistics(self):
         days_map = {
             self.translate_text("7 derniers jours"): 7,
@@ -1013,7 +967,6 @@ class StatisticsDashboard(QWidget):
         days = days_map.get(self.period_combo.currentText(), 30)
         stats = self.db_manager.get_statistics(days)
 
-        # animated stat cards
         if stats['general']:
             total_conversions = stats['general'][0] or 0
             total_size        = stats['general'][1] or 0
@@ -1026,7 +979,6 @@ class StatisticsDashboard(QWidget):
             self.card_time_saved.set_value(f"{int(total_time)}s", float(total_time), "s")
             self.card_avg_time.set_value(f"{avg_time:.1f}s", avg_time, "s", is_float=True)
 
-        # formats table
         self.formats_table.setRowCount(0)
         for i, (fmt, count) in enumerate(stats['top_formats']):
             self.formats_table.insertRow(i)
@@ -1035,7 +987,6 @@ class StatisticsDashboard(QWidget):
             item.setTextAlignment(Qt.AlignCenter)
             self.formats_table.setItem(i, 1, item)
 
-        # operations table
         self.operations_table.setRowCount(0)
         for i, (op, count) in enumerate(stats['top_operations']):
             self.operations_table.insertRow(i)
@@ -1044,7 +995,6 @@ class StatisticsDashboard(QWidget):
             item.setTextAlignment(Qt.AlignCenter)
             self.operations_table.setItem(i, 1, item)
 
-        # detailed history
         start_date   = self.start_date_edit.date().toString("yyyy-MM-dd")
         end_date     = self.end_date_edit.date().toString("yyyy-MM-dd")
         search_query = self.search_input.text() or None
@@ -1083,7 +1033,6 @@ class StatisticsDashboard(QWidget):
 
         self.update_charts()
 
-    # charts
     def _smooth_update_charts(self):
         """Fade out → redraw → fade in when user changes chart type/period."""
         self._fade_chart(fade_in=False, callback=self._redraw_and_fadein)
@@ -1120,7 +1069,6 @@ class StatisticsDashboard(QWidget):
 
         chart_type = self.chart_type_combo.currentText()
 
-        # Conversions per day
         if chart_type == self.translate_text("Conversions par jour") and stats['daily_stats']:
             dates       = [datetime.strptime(r[0], '%Y-%m-%d') for r in stats['daily_stats']]
             conversions = [r[1] for r in stats['daily_stats']]
@@ -1150,7 +1098,6 @@ class StatisticsDashboard(QWidget):
             ax.margins(x=0.01)
             self.chart_canvas.figure.tight_layout()
 
-        # Size processed per day
         elif chart_type == self.translate_text("Taille traitée par jour") and stats['daily_stats']:
             dates    = [datetime.strptime(r[0], '%Y-%m-%d') for r in stats['daily_stats']]
             sizes_mb = [r[2] / (1024 * 1024) for r in stats['daily_stats']]
@@ -1183,7 +1130,6 @@ class StatisticsDashboard(QWidget):
             self.chart_canvas.figure.autofmt_xdate()
             self.chart_canvas.figure.tight_layout()
 
-        # Operation type distribution
         elif chart_type == self.translate_text("Types d'opérations") and stats['top_operations']:
             operations  = [self.translate_operation_type(r[0]) for r in stats['top_operations']]
             counts      = [r[1] for r in stats['top_operations']]
@@ -1252,7 +1198,6 @@ class StatisticsDashboard(QWidget):
                 ax.text(0, -0.18, note, ha='center', va='center', fontsize=8,
                         color='#6b7280' if not dm else '#8b94a1', style='italic')
 
-        # Format evolution
         elif chart_type == self.translate_text("Évolution des formats") and stats['top_formats']:
             formats = [r[0] for r in stats['top_formats']]
             counts  = [r[1] for r in stats['top_formats']]
@@ -1277,7 +1222,6 @@ class StatisticsDashboard(QWidget):
 
         self.chart_canvas.draw()
 
-    # export
     def export_history(self, format_type):
         file_filter = "CSV (*.csv)" if format_type == 'csv' else "JSON (*.json)"
         filepath, _ = QFileDialog.getSaveFileName(
@@ -1296,7 +1240,6 @@ class StatisticsDashboard(QWidget):
                     self.translate_text(f"Erreur lors de l'export: {str(e)}")
                 )
 
-    # DB selector
     def _build_db_selector_bar(self) -> QWidget:
         dm = self._dark
         bar = QWidget()
@@ -1363,7 +1306,6 @@ class StatisticsDashboard(QWidget):
             else f"background:#e2e8f0; color:#4a5568; {btn_base}"
         )
 
-        # reset all buttons
         self._btn_main_db.setStyleSheet(btn_normal)
         self._btn_adv_db.setStyleSheet(btn_normal)
 
@@ -1388,7 +1330,6 @@ class StatisticsDashboard(QWidget):
             )
             if not path:
                 return
-            # Try as AdvancedDatabaseManager first, then fall back to main schema
             try:
                 custom_db = AdvancedDatabaseManager(db_path=path)
                 self.db_manager = _AdvDbProxy(custom_db)
@@ -1418,7 +1359,6 @@ class StatisticsDashboard(QWidget):
 
         self.load_statistics()
 
-    # helpers
     def format_size(self, size_bytes):
         if size_bytes is None:
             return "0 octets"
@@ -1428,13 +1368,11 @@ class StatisticsDashboard(QWidget):
             size_bytes /= 1024.0
         return f"{size_bytes:.2f} Po"
 
-    # i18n
     def translate_text(self, text):
         return self._translation_manager.translate_text(text)
 
     def translate_operation_type(self, operation_key):
         return self._translation_manager.translate_operation_type(operation_key)
 
-    # keep for backward compat
     def apply_scrollbar_style(self):
         pass

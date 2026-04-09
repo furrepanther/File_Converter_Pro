@@ -42,7 +42,6 @@ if _ROOT_DIR not in _sys.path:
     _sys.path.insert(0, _ROOT_DIR)
 from translations import TranslationManager
 
-#  DESIGN TOKENS  —  dark + light palettes, runtime-switchable
 
 class _DSBase:
     TIERS = {
@@ -60,8 +59,6 @@ class _DSBase:
         "advanced":      ("#22d3ee", "#0A7A90"),
     }
 
-    # Hover accent color per tier — edit to tune each tier's hover tint.
-    # Used for halo, border glow, stripe, badge and name blend on hover.
     TIER_HOVER = {
         "starter":       "#C8ECEE",
         "bronze":        "#E8943A",
@@ -141,7 +138,6 @@ class _DSProxy:
 
 DS = _DSProxy()
 
-#  XP RING  — circular progress indicator for Overview
 
 class XPRingWidget(QWidget):
     def __init__(self, total_xp: int = 0, max_xp: int = 1, parent=None):
@@ -272,7 +268,6 @@ class XPRingWidget(QWidget):
 
         p.end()
 
-#  STAT BAR  — horizontal painted bar for statistics
 
 class StatBarWidget(QWidget):
     def __init__(self, label: str, value: str, fraction: float = 1.0,
@@ -315,7 +310,6 @@ class StatBarWidget(QWidget):
 
         p.end()
 
-#  GLOBAL PROGRESS BAR  — QPainter-drawn, fully rounded, % text inside
 
 class GlobalProgressBar(QWidget):
     """
@@ -381,7 +375,6 @@ class GlobalProgressBar(QWidget):
             p.setBrush(QBrush(grad))
             p.drawPath(fill_path)
 
-        # Text
         pct_str = f"{frac * 100:.1f}%"
         txt_c   = QColor("#FFFFFF" if DS.is_dark else "#1C1A16")
         p.setPen(txt_c)
@@ -389,7 +382,6 @@ class GlobalProgressBar(QWidget):
         p.drawText(QRectF(0, 0, w, h), Qt.AlignCenter, pct_str)
         p.end()
 
-#  ACHIEVEMENT CARD
 
 class AchievementCard(QFrame):
     def __init__(self, achievement: dict, tier_data: dict,
@@ -413,7 +405,6 @@ class AchievementCard(QFrame):
         self.setFixedHeight(130)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
-        # Drop shadow for hover lift effect
         self._shadow = QGraphicsDropShadowEffect(self)
         self._shadow.setBlurRadius(0)
         self._shadow.setOffset(0, 0)
@@ -428,7 +419,6 @@ class AchievementCard(QFrame):
         cat_color_str = self.category_data.get("color", "#58A6FF")
         self._cat_color = QColor(cat_color_str)
 
-        # Hover color: tier-based, not category-based — edit DS.TIER_HOVER to tune
         hover_hex = DS.TIER_HOVER.get(tier_id, DS.TIER_HOVER["bronze"])
         self._hover_color = QColor(hover_hex)
 
@@ -738,21 +728,15 @@ class AchievementCard(QFrame):
                          else _cn.get(self.language, ""))
             pill_text = f"{tier_name}  ·  {cat_name}" if tier_name and cat_name else tier_name
             if unlocked:
-                # In dark mode: lighten slightly on hover.
-                # In light mode: use the raw tier color (already saturated) and
-                # darken on hover so it stays readable against the light background.
                 if DS.is_dark:
                     pc = QColor(self._tier_color).lighter(int(110 + 25 * t))
                 else:
                     base_pc = QColor(self._tier_color)
-                    # Clamp lightness so the color never washes out on light BG.
                     h2, s2, v2, a2 = base_pc.getHsvF()
-                    v2 = min(v2, 0.72 - 0.08 * t)   # darken slightly on hover
-                    s2 = min(s2 + 0.10 * t, 1.0)     # boost saturation on hover
+                    v2 = min(v2, 0.72 - 0.08 * t)
+                    s2 = min(s2 + 0.10 * t, 1.0)
                     pc = QColor.fromHsvF(h2, s2, v2, a2)
             else:
-                # Locked: interpolate from a readable muted shade toward category color.
-                # In light mode TEXT_MUTED is already mid-grey — keep it legible.
                 base_muted = QColor(DS.TEXT_SECONDARY if not DS.is_dark else DS.TEXT_MUTED)
                 pc = QColor(
                     int(base_muted.red()   * (1-t) + cat_c.red()   * t),
@@ -842,7 +826,6 @@ class AchievementCard(QFrame):
 
         p.end()
 
-#  NAV PILL ROW
 
 class NavPill(QPushButton):
     def __init__(self, text: str, parent=None):
@@ -891,14 +874,8 @@ class NavPill(QPushButton):
         super().setChecked(checked)
         self._update_style()
 
-#  RANK BADGE WIDGET  —  tier-aware evolving animation
+#  RANK BADGE WIDGET - tier-aware evolving animation
 
-# Rank tier mapping: rank name (lowercase) → tier id
-# Adapt this table to your actual rank names if they differ.
-# Maps exact rank names (lower) → animation level (0–4)
-# Based on actual ranks in AchievementSystem.ranks:
-#   Rookie, Initiate, Adept, Veteran, Elite,
-#   Champion, Master, Grand Master, Legendary, Mythic
 _RANK_ANIM_MAP = {
     # FR names
     "débutant":    0,   # Rookie    — heartbeat
@@ -943,9 +920,9 @@ class RankBadgeWidget(QWidget):
         self.rank_color = QColor(rank_color)
         self.icon_path  = icon_path
         self._pixmap: Optional[QPixmap] = None
-        self._phase  = 0.0    # main animation phase (0 → 2π)
-        self._phase2 = 0.0    # secondary orbit phase
-        self._phase3 = 0.0    # tertiary orbit phase
+        self._phase  = 0.0
+        self._phase2 = 0.0
+        self._phase3 = 0.0
         self._anim_level = self._resolve_anim_level(rank_name)
         self._load_icon(icon_path)
         self.setFixedHeight(36)
@@ -954,11 +931,10 @@ class RankBadgeWidget(QWidget):
 
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._tick)
-        self._timer.start(20)   # 50 fps — smooth orbits
+        self._timer.start(20)   # 50 fps - smooth orbits
 
     def _resolve_anim_level(self, rank_name: str) -> int:
         key = rank_name.lower().strip()
-        # Direct lookup first (exact FR or EN name)
         level = _RANK_ANIM_MAP.get(key, None)
         if level is None:
             for k, lv in _RANK_ANIM_MAP.items():
@@ -975,7 +951,6 @@ class RankBadgeWidget(QWidget):
                 self._pixmap = px.scaled(22, 22, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
     def _tick(self):
-        # Speed escalates with tier
         speeds = [0.025, 0.04, 0.055, 0.07, 0.09]
         sp = speeds[self._anim_level]
         self._phase  = (self._phase  + sp)            % (2 * math.pi)
@@ -985,7 +960,6 @@ class RankBadgeWidget(QWidget):
 
     def _calc_width(self):
         fm = QFontMetrics(QFont("Segoe UI", 11, QFont.Bold))
-        # Extra padding for orbiting dots at diamond tier
         extra = 20 if self._anim_level >= 3 else 0
         self.setFixedWidth(fm.horizontalAdvance(self.rank_name) + 60 + extra)
 
@@ -1086,7 +1060,6 @@ class RankBadgeWidget(QWidget):
         p.setBrush(bg)
         p.drawRoundedRect(QRectF(0, 0, w, h), h / 2, h / 2)
 
-        # 3. Icon / dot
         if self._pixmap:
             p.drawPixmap(8, (h - 22) // 2, self._pixmap)
             text_x = 36
@@ -1096,14 +1069,12 @@ class RankBadgeWidget(QWidget):
             p.drawEllipse(QRectF(8, (h - 10) / 2, 10, 10))
             text_x = 26
 
-        # 4. Rank name
         p.setPen(rc)
         p.setFont(QFont("Segoe UI", 11, QFont.Bold))
         p.drawText(QRectF(text_x, 0, w - text_x - 8, h),
                    Qt.AlignVCenter | Qt.AlignLeft, self.rank_name)
         p.end()
 
-#  MAIN ACHIEVEMENTS DIALOG
 
 class AchievementsUI(QDialog):
     """Achievements interface — premium luxury HUD redesign."""
@@ -1128,9 +1099,6 @@ class AchievementsUI(QDialog):
         self._apply_global_style()
         self.setup_ui()
 
-        # Show the window shell immediately (skeleton visible), then load data.
-        # Using show() + processEvents() here means the window paints once fully
-        # before the heavy card loop runs — no double-flash, no blank flicker.
         self.show()
         QApplication.processEvents()
         self.load_achievements()
@@ -1451,7 +1419,6 @@ class AchievementsUI(QDialog):
             lay.addWidget(chip)
             lay.addSpacing(6)
             self._header_chips.append(chip)
-
         return w
 
     def _build_footer(self) -> QWidget:
@@ -1487,14 +1454,12 @@ class AchievementsUI(QDialog):
             pill.setChecked(i == index)
         self.stack.setCurrentIndex(index)
 
-    # Overview tab
     def _build_overview_tab(self) -> QWidget:
         page = QWidget()
         lay  = QVBoxLayout(page)
         lay.setContentsMargins(0, 8, 0, 0)
         lay.setSpacing(12)
 
-        # Top row: XP ring + right column
         top_row = QHBoxLayout()
         top_row.setSpacing(16)
 
@@ -1507,25 +1472,21 @@ class AchievementsUI(QDialog):
         self._xp_ring = XPRingWidget(total_xp, self._max_xp)
         top_row.addWidget(self._xp_ring)
 
-        # Right column: progress info + rank
         info_col = QVBoxLayout()
         info_col.setSpacing(10)
 
         unlocked = self.achievement_system.get_unlocked_count()
-        total    = len(self.achievement_system.get_all_achievements())
-        pct      = self.achievement_system.get_progress_percentage()
+        total = len(self.achievement_system.get_all_achievements())
+        pct = self.achievement_system.get_progress_percentage()
 
-        # Count label: "X / Y achievements unlocked"
         self._progress_lbl = QLabel()
         self._progress_lbl.setTextFormat(Qt.RichText)
         self._progress_lbl.setText(self._progress_lbl_html(unlocked, total))
         info_col.addWidget(self._progress_lbl)
 
-        # Custom QPainter progress bar — fully rounded pill
         self._global_bar = GlobalProgressBar(int(pct), 100)
         info_col.addWidget(self._global_bar)
 
-        # Rank badge
         rank_idx, rank_fr, rank_color = self.achievement_system.get_current_rank()
         rank_name = self.T(rank_fr)
         rank_key  = self.achievement_system.ranks[rank_idx][0].lower().replace(" ", "_")
@@ -1561,7 +1522,6 @@ class AchievementsUI(QDialog):
 
         return page
 
-    # List tab
     def _build_list_tab(self) -> QWidget:
         page = QWidget()
         lay  = QVBoxLayout(page)
@@ -1579,7 +1539,6 @@ class AchievementsUI(QDialog):
         self._cards_layout.setSpacing(10)
         self._cards_layout.setContentsMargins(2, 2, 2, 2)
 
-        # Skeleton placeholder — replaced by real cards on load_achievements
         self._skeleton_lbl = QLabel(f"⏳  {self.T('Chargement des succès...')}")
         self._skeleton_lbl.setAlignment(Qt.AlignCenter)
         self._skeleton_lbl.setStyleSheet(
@@ -1660,7 +1619,6 @@ class AchievementsUI(QDialog):
             }}
         """)
 
-    # Stats tab
     def _build_stats_tab(self) -> QWidget:
         page   = QWidget()
         lay    = QVBoxLayout(page)

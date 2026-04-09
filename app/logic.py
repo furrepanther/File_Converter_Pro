@@ -12,7 +12,7 @@ FileConverterApp, extracted as a mixin for clarity.  Import order:
     __init__.py (FileConverterApp)
 
 Author: Hyacinthe
-Version: 2.0
+Version: 1.0
 """
 
 """
@@ -62,11 +62,6 @@ from PySide6.QtGui import QIcon, QGuiApplication
 from datetime import datetime
 import time
 
-# PDF / Word / Image libraries
-# Each import is isolated so a single missing library never silently kills the
-# others.  Variables are set to None when unavailable so callers can guard
-# with  `if PdfReader is None: ...`  instead of getting a NameError at runtime.
-#
 # NOTE: fitz (PyMuPDF) is intentionally NOT imported here — it is heavy (~70 MB
 # in RAM) and only needed inside specific PDF-processing methods. Each method
 # does `import fitz` locally so the library loads on first use, not at startup.
@@ -111,7 +106,6 @@ except ImportError as _e:
     OCR_AVAILABLE = False
     print(f"[IMPORT] Pillow not available: {_e}")
 
-# Local imports — always needed at startup
 from config import is_windows_dark_mode
 from database import DatabaseManager
 from translations import TranslationManager
@@ -124,12 +118,6 @@ from achievements import AchievementSystem
 from special_events_manager import SpecialEventsManager
 from system_notifier import SystemNotifier
 
-# Lazy local imports — loaded on first use, not at startup
-# dashboard : pulls matplotlib (~40 MB) which is only needed when the user
-#             opens the statistics window.
-# history   : standalone dialog, not needed until the user opens history.
-# templates : large module, not needed until the user opens templates.
-# tarfile   : stdlib but unnecessary at startup — only used for archive export.
 
 class AppLogicMixin:
     """Mixin: conversion engine and data logic for FileConverterApp."""
@@ -141,7 +129,7 @@ class AppLogicMixin:
         self.current_language = self.config.get("language", "fr")
         # If "use_system_theme" is enabled, re-calculate dark_mode on each launch
         if self.config.get("use_system_theme", True):
-            self.dark_mode = is_windows_dark_mode() # Optional: update config in memory
+            self.dark_mode = is_windows_dark_mode()
         else:
             self.dark_mode = self.config.get("dark_mode", False)
         
@@ -150,7 +138,6 @@ class AppLogicMixin:
         
         self.files_list = []
         self.current_project = None
-        # JSON project metadata (name, notes, created_at, etc.)
         self._project_data = {}
         self.preview_dialog = None
         self.temp_files = []
@@ -158,15 +145,13 @@ class AppLogicMixin:
         self.terms_accepted = self.config.get("accepted_terms", False) and self.config.get("accepted_privacy", False)
         if not self.terms_accepted:
             self.show_terms_dialog()
-            # If show_terms_dialog() does not exit the app, exit here
             if not (self.config.get("accepted_terms") and self.config.get("accepted_privacy")):
                 sys.exit(0)
         
         self.db_manager = DatabaseManager()
         self.template_settings = {}
-        self.template_manager = None  # loaded lazily on first use (templates module is heavy)
+        self.template_manager = None
 
-        # Advanced DB — init once at startup so opening history is instant
         self.adv_db_manager = None
         try:
             from converter import AdvancedDatabaseManager
@@ -215,7 +200,6 @@ class AppLogicMixin:
                 _geom.get("height", 900),
             )
             self.setGeometry(restored)
-            # Phantom Window Guard: screen disconnected since the last session
             if not QGuiApplication.screenAt(self.geometry().center()):
                 self.setGeometry(100, 100, 1400, 900)
 
@@ -226,7 +210,6 @@ class AppLogicMixin:
         
         self.update_texts()
         self.special_events = SpecialEventsManager(self)
-        # Open a .fcproj passed as argument (double-click or "Open with" on the exe)
         _argv_project = None
         for _arg in sys.argv[1:]:
             if _arg.lower().endswith('.fcproj') and os.path.exists(_arg):
@@ -240,10 +223,6 @@ class AppLogicMixin:
         if self.config.get("show_dashboard_on_startup", False):
             QTimer.singleShot(1500, self.show_dashboard)
 
-        # ── Donor thank-you check ──────────────────────────────────
-        # If the user clicked "Donate with PayPal" in a previous session,
-        # a flag file was written.  We pop it here and show a warm
-        # Thank You dialog (2 s delay so the main window is fully visible).
         QTimer.singleShot(2000, self._check_donor_return)
 
     def _ensure_template_manager(self):
@@ -266,21 +245,16 @@ class AppLogicMixin:
             self.config["accepted_terms"] = True
             self.config["accepted_privacy"] = True
             
-            # Re-acceptance detection
             if self.config.get("terms_acceptance_timestamp") is not None:
-                # If re-acceptance → save new timestamp
                 self.config["terms_reacceptance_timestamp"] = now
                 print(f"[TERMS DEBUG] ✅ Re-acceptance detected - terms_reacceptance_timestamp added: {now}")
             else:
-                # First acceptance → save initial timestamp
                 self.config["terms_acceptance_timestamp"] = now
                 print(f"[TERMS DEBUG] ℹ️ First acceptance - terms_acceptance_timestamp set: {now}")
             
-            # Keep terms_rejection_timestamp
             self.config_manager.save_config(self.config)
             self.terms_accepted = True
         else:
-            # Refusal → exit the application
             QMessageBox.information(
                 self,
                 self.translate_text("Conditions requises"),
@@ -316,7 +290,6 @@ class AppLogicMixin:
         return temp_path
 
     def optimize_office_files(self, office_files, optimization_type, quality_level, remove_metadata, compress_images, keep_backup):
-        # Reset the active template after use (one-shot)
         if hasattr(self, 'active_templates') and 'office_optimization' in self.active_templates:
             del self.active_templates['office_optimization']
         """Optimize office and image files"""
@@ -433,7 +406,6 @@ class AppLogicMixin:
                     
                     operation_time = (datetime.now() - operation_start).total_seconds()
                     
-                    # Record in history as "office optimization"
                     self.db_manager.add_conversion_record(
                         source_file=file_path,
                         source_format=file_ext.upper().replace('.', ''),
@@ -483,18 +455,18 @@ class AppLogicMixin:
     def optimize_pdf_file(self, pdf_path, output_path, compression_level, remove_metadata, compress_images):
         """Optimize a PDF file"""
         try:
-            import fitz  # PyMuPDF — lazy import to save ~70 MB RAM at startup
+            import fitz
             pdf_document = fitz.open(pdf_path)
             
             # Compression level settings
             if compression_level == "very_reduced":
                 save_options = {
-                    'garbage': 4,  # Max garbage collection
+                    'garbage': 4,
                     'deflate': True,
                     'clean': True,
                     'deflate_images': compress_images,
                     'deflate_fonts': True,
-                    'optimize': True  # Further optimization
+                    'optimize': True
                 }
             elif compression_level == "high":
                 save_options = {
@@ -504,7 +476,7 @@ class AppLogicMixin:
                     'deflate_images': compress_images,
                     'deflate_fonts': True
                 }
-            else:  # normal
+            else:
                 save_options = {
                     'garbage': 2,
                     'deflate': True,
@@ -518,7 +490,7 @@ class AppLogicMixin:
             pdf_document.close()
             
             return True
-            
+        
         except Exception as e:
             print(f"PDF optimization error {pdf_path}: {e}")
             return False
@@ -583,20 +555,16 @@ class AppLogicMixin:
 
             prs = Presentation(ppt_path)
 
-            # Remove empty slides via XML (python-pptx has no slides.pop())
             slides_to_remove = []
             for i, slide in enumerate(prs.slides):
                 if not slide.shapes:
                     slides_to_remove.append(i)
 
-            # We need the presentation XML slide list element
             xml_slides = prs.slides._sldIdLst
             for i in reversed(slides_to_remove):
-                # Remove the <p:sldId> entry at position i
                 sld_id_elem = xml_slides[i]
                 xml_slides.remove(sld_id_elem)
 
-            # Compress embedded images (recompress with Pillow)
             if compress_images:
                 quality_map = {"high": 85, "normal": 75, "very_reduced": 55}
                 jpeg_quality = quality_map.get(compression_level, 75)
@@ -604,7 +572,7 @@ class AppLogicMixin:
                     from PIL import Image as PILImage
                     for slide in prs.slides:
                         for shape in slide.shapes:
-                            if shape.shape_type == 13:   # MSO_SHAPE_TYPE.PICTURE
+                            if shape.shape_type == 13:
                                 try:
                                     img_part = shape.image
                                     blob = img_part.blob
@@ -674,10 +642,7 @@ class AppLogicMixin:
 
             ext = Path(output_path).suffix.lower().lstrip(".")
 
-            # Build ffmpeg args based on quality_level
-            # quality_level 0 = high quality (reduced size but faithful)
-            # quality_level 1 = standard (good balance)
-            # quality_level 2 = maximum compression (minimum size)
+            # Build ffmpeg args based on quality_level and media_type
 
             if media_type == 'audio':
                 AUDIO_PRESETS = {
@@ -715,7 +680,7 @@ class AppLogicMixin:
                 presets = AUDIO_PRESETS.get(ext, default_audio)
                 args = presets.get(quality_level, presets[1])
 
-            else:  # video
+            else:
                 VIDEO_PRESETS = {
                     "mp4": {
                         0: ["-codec:v", "libx264", "-crf", "18", "-preset", "slow",
@@ -771,12 +736,11 @@ class AppLogicMixin:
                 print(f"[optimize_av] ffmpeg error: {err}")
                 return False
 
-            # Accept only if output is smaller (or within 5% of original for lossless)
+            # Accept only if output is smaller than original
             if os.path.exists(output_path):
                 orig_size = os.path.getsize(src_path)
                 new_size  = os.path.getsize(output_path)
                 if new_size >= orig_size * 1.05:
-                    # Re-encode made it bigger — keep original copy
                     import shutil as _sh
                     _sh.copy2(src_path, output_path)
             return True
@@ -800,30 +764,23 @@ class AppLogicMixin:
 
             if file_ext == '.json':
                 import json as _json
-                # Parse then re-dump compact
                 data = _json.loads(content)
                 minified = _json.dumps(data, ensure_ascii=False, separators=(',', ':'))
 
-            else:  # .html / .htm
+            else:
                 import re as _re
-                # Remove HTML comments
                 minified = _re.sub(r'<!--.*?-->', '', content, flags=_re.DOTALL)
-                # Collapse runs of whitespace/newlines between tags
                 minified = _re.sub(r'>\s+<', '><', minified)
-                # Collapse inline whitespace sequences (keep single space)
                 minified = _re.sub(r'[ 	]{2,}', ' ', minified)
-                # Remove leading/trailing whitespace per line then join
                 lines = [l.strip() for l in minified.splitlines()]
                 minified = '\n'.join(l for l in lines if l)
 
-            # Only write if we actually made it smaller
             orig_bytes = content.encode('utf-8')
             new_bytes  = minified.encode('utf-8')
             if len(new_bytes) < len(orig_bytes):
                 with open(output_path, 'w', encoding='utf-8') as f:
                     f.write(minified)
             else:
-                # Nothing to gain — copy as-is
                 import shutil as _sh
                 _sh.copy2(src_path, output_path)
 
@@ -875,11 +832,10 @@ class AppLogicMixin:
                                     img.convert('RGB').save(buf_new, format='JPEG',
                                                             quality=img_quality, optimize=True)
                             new_data = buf_new.getvalue()
-                            # Use recompressed version only if smaller
                             if len(new_data) < len(data):
                                 data = new_data
                         except Exception:
-                            pass  # Keep original data on any error
+                            pass
 
                     # mimetype entry must be stored uncompressed (EPUB spec)
                     if item.filename == 'mimetype':
@@ -949,7 +905,6 @@ class AppLogicMixin:
             fmt_out  = ext_map.get(dst_ext, ext_map.get(src_ext, "JPEG"))
 
             with PILImage.open(img_path) as img:
-                # Preserve EXIF if available
                 exif_data = None
                 try:
                     exif_data = img.info.get("exif")
@@ -984,13 +939,12 @@ class AppLogicMixin:
             with open(pdf_path, 'rb') as f:
                 pdf_reader = PdfReader(f)
                 
-                # Check if encrypted
                 if pdf_reader.is_encrypted:
                     # Do not check images for encrypted PDF
                     # Let conversion handle it after decryption
                     return False
                 
-                import fitz  # PyMuPDF — lazy import
+                import fitz
                 pdf_document = fitz.open(pdf_path)
                 has_images = False
                 
@@ -1038,7 +992,6 @@ class AppLogicMixin:
             QMessageBox.warning(self, self.translate_text("Avertissement"), msg)
             return
         
-        # Check encrypted PDF
         encrypted_pdfs = []
         for pdf_file in pdf_files:
             try:
@@ -1070,7 +1023,6 @@ class AppLogicMixin:
             self.convert_pdfs_without_images(pdf_files)
             return
         
-        # If a template is active, bypass the dialog entirely
         if hasattr(self, 'active_templates') and 'pdf_to_word' in self.active_templates:
             conversion_mode = self.active_templates['pdf_to_word'].get('mode', 'with_images')
         else:
@@ -1084,7 +1036,6 @@ class AppLogicMixin:
         if not output_dir:
             return
         
-        # PDF → Word  (async)
         message = self.translate_text("conversion_pdf_to_word").format(len(pdf_files))
         self.show_progress(True, message)
         self._set_ui_enabled(False)
@@ -1189,10 +1140,8 @@ class AppLogicMixin:
         info_label.setStyleSheet("font-weight: bold; color: #d35400; padding: 10px;")
         layout.addWidget(info_label)
         
-        # Tabs for different cases
         tab_widget = QTabWidget()
         
-        # Case 1: One encrypted PDF
         single_tab = QWidget()
         single_layout = QVBoxLayout(single_tab)
         
@@ -1208,7 +1157,6 @@ class AppLogicMixin:
             dialog.single_password_input = single_password_input
             dialog.single_pdf = encrypted_pdfs[0]
         
-        # Case 2: Multiple encrypted PDFs
         multiple_tab = QWidget()
         multiple_layout = QVBoxLayout(multiple_tab)
         
@@ -1217,7 +1165,6 @@ class AppLogicMixin:
             scroll_widget = QWidget()
             scroll_layout = QVBoxLayout(scroll_widget)
             
-            # Create a dict to store QLineEdit
             password_inputs = {}
             
             for pdf_file in encrypted_pdfs:
@@ -1239,10 +1186,8 @@ class AppLogicMixin:
             scroll_area.setWidgetResizable(True)
             multiple_layout.addWidget(scroll_area)
             
-            # Store for reference
             dialog.password_inputs = password_inputs
         
-        # Case 3: Single password for all
         same_tab = QWidget()
         same_layout = QVBoxLayout(same_tab)
         
@@ -1254,10 +1199,8 @@ class AppLogicMixin:
         same_layout.addWidget(QLabel(self.translate_text("Mot de passe commun :")))
         same_layout.addWidget(same_password_input)
         
-        # Store reference
         dialog.same_password_input = same_password_input
         
-        # Add tabs
         if len(encrypted_pdfs) == 1:
             tab_widget.addTab(single_tab, self.translate_text("PDF unique"))
         else:
@@ -1266,7 +1209,6 @@ class AppLogicMixin:
         
         layout.addWidget(tab_widget)
         
-        # Additional options
         options_group = QGroupBox(self.translate_text("Options de sortie"))
         options_layout = QVBoxLayout(options_group)
         
@@ -1376,17 +1318,15 @@ class AppLogicMixin:
                         
                         pdf_writer = PdfWriter()
                         
-                        # Copy all pages
                         for page in pdf_reader.pages:
                             pdf_writer.add_page(page)
                         
-                        # Create temporary file with original name + "_decrypted.pdf"
                         original_stem = Path(pdf_file).stem
                         temp_file = os.path.join(
                             tempfile.gettempdir(),
                             f"{original_stem}_decrypted.pdf"
                         )
-                        # Ensure the name is unique
+                        
                         counter = 1
                         while os.path.exists(temp_file):
                             temp_file = os.path.join(
@@ -1420,12 +1360,10 @@ class AppLogicMixin:
                 failed_files.append(error_msg)
                 print(f"Decryption error {pdf_file}: {e}")
             
-            # Update progress
             self.progress_bar.setValue(int((i + 1) / len(pdf_files) * 100))
         
         self.show_progress(False)
         
-        # Display results
         if failed_files:
             error_message = self.translate_text(f"{success_count}/{len(pdf_files)} PDF(s) déchiffré(s) avec succès.\n\n")
             error_message += self.translate_text(f"Échecs ({len(failed_files)}):\n")
@@ -1461,19 +1399,15 @@ class AppLogicMixin:
                     if not success:
                         raise Exception(self.translate_text("Mot de passe incorrect"))
                 
-                # Create writer
                 pdf_writer = PdfWriter()
                 
-                # Copy all pages
                 for page in pdf_reader.pages:
                     pdf_writer.add_page(page)
                 
-                # Determine output path
                 if not output_path:
                     # Create temp file
                     output_path = self.create_temp_file(suffix="_decrypted.pdf")
                 
-                # Write file
                 with open(output_path, 'wb') as output_file:
                     if remove_password:
                         pdf_writer.write(output_file)
@@ -1492,7 +1426,6 @@ class AppLogicMixin:
         if not output_dir:
             return
         
-        # PDF → Word
         message = self.translate_text("conversion_pdf_to_word").format(len(pdf_files))
         self.show_progress(True, message)
         
@@ -1519,7 +1452,6 @@ class AppLogicMixin:
                 self.achievement_system.mark_format_as_used("pdf")
                 self.achievement_system.mark_format_as_used("docx")
                 
-                # Record in history
                 self.db_manager.add_conversion_record(
                     source_file=file_path,
                     source_format="PDF",
@@ -1567,7 +1499,6 @@ class AppLogicMixin:
             self.system_notifier.send("pdf_to_word")  
         QMessageBox.information(self, self.translate_text("Succès"), self.translate_text(message))
 
-    #  Chart / vector-region detection helpers
 
     def _get_chart_regions(self, page):
         """
@@ -1581,23 +1512,20 @@ class AppLogicMixin:
           - Overlapping bboxes are merged so a multi-series chart becomes
             one region rather than dozens of tiny fragments.
         """
-        MIN_PATHS   = 8      # at least this many paths to consider it a chart
-        MIN_AREA    = 8000   # minimum bounding-box area in pt² (~2.5 cm²)
-        PADDING     = 10     # pt of extra space around the detected region
-        MERGE_GAP   = 20     # merge two rects if they are this close (pt)
+        MIN_PATHS   = 8
+        MIN_AREA    = 8000
+        PADDING     = 10
+        MERGE_GAP   = 20
 
-        import fitz  # PyMuPDF — lazy import
+        import fitz
         drawings = page.get_drawings()
         if not drawings:
             return []
 
-        # Collect individual path bboxes
         path_rects = [fitz.Rect(d["rect"]) for d in drawings if d.get("rect")]
         if len(path_rects) < MIN_PATHS:
             return []
 
-        # Simple single-pass merge: keep expanding a current cluster
-        # whenever the next rect is close enough to it.
         path_rects.sort(key=lambda r: (r.y0, r.x0))
         clusters = []
         cur = fitz.Rect(path_rects[0])
@@ -1640,7 +1568,7 @@ class AppLogicMixin:
         Rasterize a rectangular region of a PDF page to a PNG bytes object.
         dpi=150 gives a good balance between quality and file size.
         """
-        import fitz  # PyMuPDF — lazy import (already cached after first call)
+        import fitz
         zoom   = dpi / 72.0
         matrix = fitz.Matrix(zoom, zoom)
         clip   = fitz.IRect(
@@ -1665,9 +1593,6 @@ class AppLogicMixin:
             return False
 
         # Fast check: is Word actually installed?
-        # Query the registry for the Word.Application ProgID.
-        # This takes < 1 ms and avoids the 60-second COM timeout on machines
-        # that don't have Microsoft Word installed.
         try:
             import winreg
             winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, "Word.Application")
@@ -1677,7 +1602,6 @@ class AppLogicMixin:
 
         import os
         import threading
-        import time
         pdf_path  = os.path.abspath(pdf_path)
         docx_path = os.path.abspath(docx_path)
 
@@ -1713,7 +1637,7 @@ class AppLogicMixin:
                     # Match "OK" in any language variant (Ok, ok, OK)
                     if buf.value.strip().upper() in ("OK", "O&K"):
                         found.value = hwnd_child
-                        return False   # stop enumeration
+                        return False
                     # Also match button with ID=1 (IDOK)
                     ctrl_id = user32.GetDlgCtrlID(hwnd_child)
                     if ctrl_id == 1:
@@ -1738,7 +1662,7 @@ class AppLogicMixin:
                         else:
                             # Fallback: WM_COMMAND IDOK on the dialog itself
                             user32.SendMessageW(hwnd, 0x0111, 1, 0)
-                # Also search by title (covers dialogs with unexpected class)
+                # Also search by title
                 hwnd = user32.FindWindowW(None, target_title)
                 if hwnd:
                     ok_btn = _find_ok_button(hwnd)
@@ -1758,8 +1682,8 @@ class AppLogicMixin:
                 pythoncom.CoInitialize()
                 word = comtypes.client.CreateObject('Word.Application')
                 word.Visible        = False
-                word.DisplayAlerts  = 0    # wdAlertsNone
-                word.AutomationSecurity = 3  # disable macros
+                word.DisplayAlerts  = 0
+                word.AutomationSecurity = 3
 
                 doc = word.Documents.Open(
                     pdf_path,
@@ -1768,7 +1692,6 @@ class AppLogicMixin:
                     AddToRecentFiles   = False,
                     NoEncodingDialog   = True,
                 )
-                # 16 = wdFormatDocumentDefault (.docx)
                 doc.SaveAs2(docx_path, FileFormat=16)
                 result["ok"] = True
                 print(f"[PDF→DOCX] Word COM success: {os.path.basename(pdf_path)}")
@@ -1786,7 +1709,6 @@ class AppLogicMixin:
                     pythoncom.CoUninitialize()
                 except: pass
 
-        # Start the dialog dismisser before Word even launches
         dismisser = threading.Thread(target=_dialog_dismisser, daemon=True)
         dismisser.start()
 
@@ -1794,7 +1716,6 @@ class AppLogicMixin:
         t.start()
         t.join(timeout=60)
 
-        # Always stop the dismisser
         stop_event.set()
 
         if t.is_alive():
@@ -1832,15 +1753,12 @@ class AppLogicMixin:
           - Page breaks between pages
         """
         import io as _io
-        import fitz  # PyMuPDF — lazy import
-        from docx.shared import Pt, Inches, RGBColor
+        import fitz
+        from docx.shared import Pt, Inches
         from docx.enum.text import WD_ALIGN_PARAGRAPH
-        from docx.oxml.ns import qn
-        from docx.oxml import OxmlElement
 
         doc = Document()
 
-        # Page margins (A4-ish)
         from docx.shared import Cm
         for section in doc.sections:
             section.top_margin    = Cm(2.0)
@@ -1849,7 +1767,6 @@ class AppLogicMixin:
             section.right_margin  = Cm(2.5)
 
         pdf_doc = fitz.open(pdf_path)
-        MAX_IMG_WIDTH = Inches(5.5)
 
         def _flag_to_style(flags, size, median_size):
             """Heuristic: map font flags + size to a paragraph style label."""
@@ -1889,7 +1806,7 @@ class AppLogicMixin:
                         if c_idx < n_cols:
                             cell = tbl.cell(r_idx, c_idx)
                             cell.text = (cell_text or "").strip()
-                doc.add_paragraph()   # spacing after table
+                doc.add_paragraph()
             except Exception as te:
                 print(f"[fallback table] {te}")
 
@@ -1914,7 +1831,7 @@ class AppLogicMixin:
             all_sizes.sort()
             median_size = all_sizes[len(all_sizes) // 2] if all_sizes else 11.0
 
-            # Detect tables (requires PyMuPDF >= 1.23)
+            # Detect tables
             table_rects = []
             tables_on_page = []
             try:
@@ -1923,7 +1840,7 @@ class AppLogicMixin:
                 for t in tables_on_page:
                     table_rects.append(fitz.Rect(t.bbox))
             except Exception:
-                pass  # older PyMuPDF — skip table detection
+                pass 
 
             def _rect_in_table(rect):
                 """True if this rect overlaps significantly with a known table."""
@@ -1943,7 +1860,7 @@ class AppLogicMixin:
                         continue
                     bbox = bbox_list[0]
                     if _rect_in_table(bbox):
-                        continue   # skip images that are inside a table cell
+                        continue
                     pix = fitz.Pixmap(pdf_doc, xref)
                     if pix.colorspace and pix.colorspace.n > 3:
                         pix = fitz.Pixmap(fitz.csRGB, pix)
@@ -1962,16 +1879,12 @@ class AppLogicMixin:
 
             images_on_page.sort(key=lambda x: x["y0"])
 
-            # Merge text blocks + images into an ordered stream
-            # Each item: ("text", y0, block) or ("image", y0, img_dict)
-            #             ("table", y0, tab)
             stream = []
             for blk in text_dict.get("blocks", []):
                 y0 = blk.get("bbox", [0, 0])[1]
                 if blk["type"] == 0:
                     if not _rect_in_table(fitz.Rect(blk["bbox"])):
                         stream.append(("text", y0, blk))
-                # type 1 = embedded image handled separately via get_images
             for img in images_on_page:
                 stream.append(("image", img["y0"], img))
             for tab in tables_on_page:
@@ -1982,20 +1895,17 @@ class AppLogicMixin:
 
             stream.sort(key=lambda x: x[1])
 
-            # Render stream into docx
-            img_inserted_xranges = set()   # avoid duplicate images
+            img_inserted_xranges = set()
 
             for item_type, y0, obj in stream:
 
                 if item_type == "image":
-                    # Dedup by rounded y-position
                     key = round(y0 / 5) * 5
                     if key in img_inserted_xranges:
                         continue
                     img_inserted_xranges.add(key)
                     try:
                         buf = _io.BytesIO(obj["bytes"])
-                        # Scale to fit page width, preserve aspect ratio
                         w_pt  = obj["width_pt"]
                         max_w = Inches(5.5)
                         width = min(Pt(w_pt), max_w)
@@ -2016,12 +1926,9 @@ class AppLogicMixin:
                         if not spans:
                             continue
 
-                        # Build line text + dominant style from spans
                         line_text = "".join(s.get("text", "") for s in spans)
                         if not line_text.strip():
                             continue
-
-                        # Dominant span = longest
                         dom = max(spans, key=lambda s: len(s.get("text", "")))
                         flags = dom.get("flags", 0)
                         size  = dom.get("size", median_size)
@@ -2035,7 +1942,6 @@ class AppLogicMixin:
                             p = doc.add_heading(line_text.strip(), level=3)
                         else:
                             p = doc.add_paragraph()
-                            # Reconstruct runs span by span for mixed bold/italic
                             for span in spans:
                                 span_text = span.get("text", "")
                                 if not span_text:
@@ -2056,18 +1962,14 @@ class AppLogicMixin:
           3. Solid fitz fallback (tables, images at position, bold/italic/headings)
         """
         import io as _io
-        import tempfile as _tmp
-        import fitz  # PyMuPDF — lazy import
+        import fitz
 
-        # Tier 1 : Word COM
         if self._try_word_com_pdf_to_docx(pdf_path, docx_path):
             return
 
-        # Tier 2 : pdf2docx + chart injection
         base_ok = self._try_pdf2docx(pdf_path, docx_path)
 
         if base_ok:
-            # Inject vector chart regions that pdf2docx misses
             try:
                 pdf_doc = fitz.open(pdf_path)
                 docx    = Document(docx_path)
@@ -2088,7 +1990,6 @@ class AppLogicMixin:
 
                 if charts_per_page:
                     from docx.shared import Inches as _Inches
-                    from docx.oxml.ns import qn
                     import copy
 
                     def _add_picture_paragraph(docx_doc, img_buf, max_width_inches=5.5):
@@ -2128,7 +2029,6 @@ class AppLogicMixin:
                 print(f"[chart injection] {e}")
             return
 
-        # Tier 3 : solid fitz fallback
         print(f"[PDF→DOCX] falling back to solid fitz for {Path(pdf_path).name}")
         self._solid_fitz_fallback(pdf_path, docx_path)
 
@@ -2139,7 +2039,7 @@ class AppLogicMixin:
     def convert_pdf_to_docx_text_only(self, pdf_path, docx_path):
         """Text-only extraction, no images."""
         try:
-            import fitz  # PyMuPDF — lazy import
+            import fitz
             doc = Document()
             pdf_document = fitz.open(pdf_path)
             for page_num in range(len(pdf_document)):
@@ -2167,7 +2067,7 @@ class AppLogicMixin:
         try:
             self._solid_fitz_fallback(pdf_path, docx_path)
         except Exception:
-            import fitz  # PyMuPDF — lazy import
+            import fitz
             doc = Document()
             pdf_document = fitz.open(pdf_path)
             doc.add_heading(f"Conversion de: {Path(pdf_path).name}", level=1)
@@ -2209,23 +2109,19 @@ class AppLogicMixin:
         for word_file in word_files[:1]:
             try:
                 doc = Document(word_file)
-                # Check if there are images
                 if len(doc.inline_shapes) > 0:
                     has_formatted_content = True
                     break
-                # Check if there are tables
                 if len(doc.tables) > 0:
                     has_formatted_content = True
                     break
-                # Check if there is special formatting
-                for paragraph in doc.paragraphs[:10]:  # Check the first 10 paragraphs
+                for paragraph in doc.paragraphs[:10]:
                     if paragraph.style.name not in ['Normal', 'Default Paragraph Font']:
                         has_formatted_content = True
                         break
             except:
                 pass
         
-        # If a template is active, bypass the dialog entirely
         if hasattr(self, 'active_templates') and 'word_to_pdf' in self.active_templates:
             _tpl = self.active_templates['word_to_pdf']
             _quality_map = {
@@ -2240,7 +2136,6 @@ class AppLogicMixin:
                 'include_metadata': _tpl.get('include_metadata', True),
             }
         else:
-            # Normal dialog — pre-select based on config
             dialog = WordToPdfOptionsDialog(self, self.current_language, has_formatted_content)
             if self.config.get('word_to_pdf_mode') == 'text_only':
                 dialog.text_only_radio.setChecked(True)
@@ -2252,7 +2147,6 @@ class AppLogicMixin:
         if not output_dir:
             return
         
-        # Word → PDF  (async)
         message = self.translate_text("conversion_word_to_pdf").format(len(word_files))
         self.show_progress(True, message)
         self._set_ui_enabled(False)
@@ -2342,43 +2236,38 @@ class AppLogicMixin:
         import os
         import pythoncom
         
-        # Absolute paths required for COM in an exe
         input_path = os.path.abspath(input_path)
         output_path = os.path.abspath(output_path)
         
         word = None
         doc = None
         
-        # Progress simulation for COM (Word doesn't provide real percentages)
         if progress_callback:
-            progress_callback(40) # Heavy process started
+            progress_callback(40)
             
         try:
-            # Initialize COM on this thread
             pythoncom.CoInitialize()
             import comtypes.client
 
             if progress_callback:
-                progress_callback(50) # Word launched
+                progress_callback(50)
 
             word = comtypes.client.CreateObject('Word.Application')
             word.Visible = False
-            word.DisplayAlerts = 0  # Disable Word popups
+            word.DisplayAlerts = 0
             
             if progress_callback:
-                progress_callback(60) # Opening document
+                progress_callback(60)
             
-            # Open document with absolute path
             doc = word.Documents.Open(input_path)
             
             if progress_callback:
-                progress_callback(80) # Conversion in progress
+                progress_callback(80)
             
-            # 17 = wdFormatPDF
             doc.SaveAs2(output_path, FileFormat=17)
             
             if progress_callback:
-                progress_callback(95) # Finalizing
+                progress_callback(95)
             
             print(f"[SUCCESS] COM conversion successful: {output_path}")
             return True
@@ -2388,7 +2277,7 @@ class AppLogicMixin:
             import traceback
             traceback.print_exc()
             return False
-            
+        
         finally:
             if doc is not None:
                 try:
@@ -2406,18 +2295,16 @@ class AppLogicMixin:
                 pass
             
             if progress_callback:
-                progress_callback(100) # Done
+                progress_callback(100)
 
     def convert_docx_to_pdf_preserve_all(self, docx_path, pdf_path, options, progress_callback=None):
         """Convert Word to PDF preserving all formatting with progress tracking"""
         
         if progress_callback:
-            progress_callback(0) # Start
+            progress_callback(0)
 
-        # Try docx2pdf
         try:
             from docx2pdf import convert
-            # docx2pdf is also a COM black box, we simulate progress
             if progress_callback: progress_callback(30)
             convert(docx_path, pdf_path)
             if progress_callback: progress_callback(100)
@@ -2428,15 +2315,10 @@ class AppLogicMixin:
         except Exception as e:
             print(f"[WARNING] docx2pdf failed: {e}")
 
-        # COM Automation
         try:
-            import comtypes.client
-            import pythoncom
-            
-            # Pass the callback to the COM function
             if self.convert_word_to_pdf_com(docx_path, pdf_path, progress_callback=progress_callback):
                 return True
-                
+        
         except ImportError as e:
             print(f"[INFO] COM libraries not available: {e}")
         except Exception as e:
@@ -2444,7 +2326,6 @@ class AppLogicMixin:
             import traceback
             traceback.print_exc()
         
-        # LibreOffice (Tier 3 — before the reportlab fallback)
         print("[INFO] COM/Word not available, trying LibreOffice...")
         try:
             if self._convert_docx_to_pdf_libreoffice(docx_path, pdf_path, progress_callback=progress_callback):
@@ -2452,9 +2333,8 @@ class AppLogicMixin:
         except Exception as e:
             print(f"[WARNING] LibreOffice conversion failed: {e}")
 
-        # Fallback reportlab (last resort)
         print("[INFO] Using fallback method with reportlab...")
-        if progress_callback: progress_callback(10)  # Fallback start
+        if progress_callback: progress_callback(10)
 
         return self._convert_docx_to_pdf_fallback_reportlab(
             docx_path,
@@ -2472,9 +2352,8 @@ class AppLogicMixin:
         import os, shutil, subprocess, tempfile
         from pathlib import Path
 
-        # Candidate executables — ordered by likelihood
         candidates = [
-            "libreoffice", "soffice",                        # Linux / macOS PATH
+            "libreoffice", "soffice",
             r"C:\Program Files\LibreOffice\program\soffice.exe",
             r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
             "/Applications/LibreOffice.app/Contents/MacOS/soffice",
@@ -2493,8 +2372,6 @@ class AppLogicMixin:
         if progress_callback:
             progress_callback(20)
 
-        # LibreOffice writes the output next to the source file.
-        # We use a temp dir so we can control the destination.
         with tempfile.TemporaryDirectory() as tmp_dir:
             cmd = [
                 soffice,
@@ -2523,11 +2400,9 @@ class AppLogicMixin:
                 print(f"[WARNING] LibreOffice exited with code {result.returncode}: {err}")
                 return False
 
-            # Find the generated PDF in tmp_dir
             stem = Path(docx_path).stem
             generated = Path(tmp_dir) / f"{stem}.pdf"
             if not generated.exists():
-                # Sometimes LibreOffice keeps the original extension stem
                 matches = list(Path(tmp_dir).glob("*.pdf"))
                 if not matches:
                     print("[WARNING] LibreOffice produced no PDF output.")
@@ -2562,10 +2437,10 @@ class AppLogicMixin:
             doc      = Document(docx_path)
             c        = canvas.Canvas(pdf_path, pagesize=A4)
             W, H     = A4
-            margin   = 72          # 1 inch
+            margin   = 72
             usable_w = W - 2 * margin
-            y        = H - margin  # current vertical cursor (top of page = H)
-            lh       = 14          # normal line height
+            y        = H - margin
+            lh       = 14
 
             # helpers
             def ensure_space(needed):
@@ -2598,7 +2473,7 @@ class AppLogicMixin:
                 nonlocal y
                 text = para.text.strip()
                 if not text:
-                    y -= lh // 2   # blank line spacing
+                    y -= lh // 2
                     return
 
                 style_name = (para.style.name or '') if para.style else ''
@@ -2659,7 +2534,7 @@ class AppLogicMixin:
                     return
                 n_cols = max(len(r.cells) for r in rows)
                 col_w  = usable_w / n_cols
-                row_h  = lh + 8   # cell height (single-line assumption)
+                row_h  = lh + 8
 
                 c.setFont('Helvetica', 10)
                 for r_idx, row in enumerate(rows):
@@ -2670,10 +2545,8 @@ class AppLogicMixin:
                         c.setStrokeColorRGB(0.6, 0.6, 0.6)
                         c.setFillColorRGB(1, 1, 1)
                         c.rect(rx, y - row_h, col_w, row_h, stroke=1, fill=1)
-                        # cell text (first line only if multi-line)
                         cell_text = cell.text.strip()
                         if cell_text:
-                            # truncate to fit
                             c.setFillColorRGB(0, 0, 0)
                             c.setFont('Helvetica-Bold' if r_idx == 0 else 'Helvetica', 9)
                             max_chars = int(col_w / 5.5)
@@ -2681,7 +2554,7 @@ class AppLogicMixin:
                             c.drawString(rx + 4, y - row_h + 4, display)
                         rx += col_w
                     y -= row_h
-                y -= 6  # gap after table
+                y -= 6
 
             # build a mapping rId → blob for inline images
             def _get_inline_image_blob(inline_elem):
@@ -2697,7 +2570,6 @@ class AppLogicMixin:
                     pass
                 return None
 
-            # walk document body in XML order
             body_children = list(doc.element.body)
             total = len(body_children)
 
@@ -2708,7 +2580,6 @@ class AppLogicMixin:
                 tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
 
                 if tag == 'p':
-                    # Check for inline images inside this paragraph
                     inlines = child.findall('.//' + qn('wp:inline')) + \
                               child.findall('.//' + qn('wp:anchor'))
                     if inlines:
@@ -2717,8 +2588,6 @@ class AppLogicMixin:
                             if blob:
                                 draw_image_from_blob(blob)
                     else:
-                        # plain text paragraph — find matching docx Paragraph object
-                        # (match by XML element identity)
                         para_obj = None
                         for p in doc.paragraphs:
                             if p._element is child:
@@ -2727,7 +2596,6 @@ class AppLogicMixin:
                         if para_obj is not None:
                             draw_paragraph(para_obj)
                         else:
-                            # fallback: just grab text
                             raw = ''.join(t.text or '' for t in child.iter(qn('w:t')))
                             if raw.strip():
                                 c.setFont('Helvetica', 11)
@@ -2739,7 +2607,6 @@ class AppLogicMixin:
                                     y -= lh
 
                 elif tag == 'tbl':
-                    # find matching Table object
                     tbl_obj = None
                     for t in doc.tables:
                         if t._element is child:
@@ -2748,7 +2615,6 @@ class AppLogicMixin:
                     if tbl_obj is not None:
                         draw_table(tbl_obj)
 
-            # finish
             try:
                 shutil.rmtree(temp_dir)
             except Exception:
@@ -2775,17 +2641,14 @@ class AppLogicMixin:
     def convert_docx_to_pdf_text_only(self, docx_path, pdf_path):
         """Convert Word to PDF with text only, well formatted"""
         try:
-            from reportlab.lib.enums import TA_JUSTIFY, TA_LEFT, TA_CENTER, TA_RIGHT
+            from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER, TA_RIGHT
             
             print(f"[DEBUG] Starting text-only conversion: {docx_path}")
             
-            # Load word doc
             doc = Document(docx_path)
             
-            # Create PDF
             buffer = io.BytesIO()
             
-            # Configuration
             doc_template = SimpleDocTemplate(
                 buffer, 
                 pagesize=A4,
@@ -2795,11 +2658,9 @@ class AppLogicMixin:
                 bottomMargin=72
             )
             
-            # Prepare content
             story = []
             styles = getSampleStyleSheet()
             
-            # Styles for clean text
             style_title = ParagraphStyle(
                 'TitleStyle',
                 parent=styles['Heading1'],
@@ -2842,45 +2703,40 @@ class AppLogicMixin:
                 firstLineIndent=-15
             )
             
-            # Process document paragraph by paragraph
             for i, paragraph in enumerate(doc.paragraphs):
                 text = paragraph.text.strip()
                 if text:
-                    # Detect content type
                     style_name = str(paragraph.style.name) if paragraph.style else "Normal"
                     
                     # Style according to type
-                    if i == 0 and len(text) < 100:  # First short paragraph = title
+                    if i == 0 and len(text) < 100:
                         style = style_title
                     elif 'Heading' in style_name or 'Titre' in style_name:
                         style = style_heading
                     elif text.startswith('•') or text.startswith('-') or text.startswith('*'):
                         style = style_bullet
-                        text = "• " + text.lstrip('•-* ')  # Clean bullet formatting
+                        text = "• " + text.lstrip('•-* ')
                     else:
                         style = style_normal
                     
-                    # Handle alignment
                     if hasattr(paragraph, 'alignment'):
-                        if paragraph.alignment == 1:  # CENTER
+                        if paragraph.alignment == 1:
                             style = ParagraphStyle(
                                 'CenterText',
                                 parent=style,
                                 alignment=TA_CENTER
                             )
-                        elif paragraph.alignment == 2:  # RIGHT
+                        elif paragraph.alignment == 2:
                             style = ParagraphStyle(
                                 'RightText',
                                 parent=style,
                                 alignment=TA_RIGHT
                             )
                     
-                    # Add paragraph
                     p = Paragraph(text, style)
                     story.append(p)
                     story.append(Spacer(1, 6))
             
-            # Add a note indicating this is a text-only version
             if story:
                 story.append(Spacer(1, 20))
                 note_style = ParagraphStyle(
@@ -2895,11 +2751,9 @@ class AppLogicMixin:
                 note_text = "Note : Version texte seulement - Les images et tableaux ont été omis pour une meilleure lisibilité"
                 story.append(Paragraph(note_text, note_style))
             
-            # Build PDF
             if story:
                 doc_template.build(story)
             else:
-                # Empty document
                 empty_style = ParagraphStyle(
                     'EmptyStyle',
                     parent=styles['Normal'],
@@ -2911,7 +2765,6 @@ class AppLogicMixin:
                 story.append(Paragraph("Document vide", empty_style))
                 doc_template.build(story)
             
-            # Save
             with open(pdf_path, 'wb') as f:
                 f.write(buffer.getvalue())
             
@@ -2940,12 +2793,11 @@ class AppLogicMixin:
             }
             
             # Check formatting
-            for paragraph in doc.paragraphs[:20]:  # Check the first 20 paragraphs
+            for paragraph in doc.paragraphs[:20]:
                 if paragraph.style and paragraph.style.name not in ['Normal', 'Default Paragraph Font']:
                     content_info['has_formatting'] = True
                     break
             
-            # Determine complexity
             if content_info['images'] > 0 or content_info['tables'] > 2:
                 content_info['complexity'] = 'complex'
             elif content_info['has_formatting'] or content_info['paragraphs'] > 50:
@@ -2977,7 +2829,6 @@ class AppLogicMixin:
             # Create PDF
             buffer = io.BytesIO()
             
-            # PDF document configuration
             doc_template = SimpleDocTemplate(
                 buffer, 
                 pagesize=A4,
@@ -2988,11 +2839,9 @@ class AppLogicMixin:
                 title=f"Converted from: {Path(docx_path).name}"
             )
             
-            # Prepare content
             story = []
             styles = getSampleStyleSheet()
             
-            # Custom styles
             style_normal = ParagraphStyle(
                 'CustomNormal',
                 parent=styles['Normal'],
@@ -3023,12 +2872,10 @@ class AppLogicMixin:
                 alignment=TA_LEFT
             )
             
-            # Extract all text preserving paragraphs
             for paragraph in doc.paragraphs:
-                if paragraph.text.strip():  # Ignore empty paragraphs
+                if paragraph.text.strip():
                     text = paragraph.text
                     
-                    # Determine style according to Word style
                     style = style_normal
                     if paragraph.style and paragraph.style.name:
                         if 'Heading 1' in paragraph.style.name or 'Titre 1' in paragraph.style.name:
@@ -3038,46 +2885,41 @@ class AppLogicMixin:
                         elif 'Title' in paragraph.style.name or 'Titre' in paragraph.style.name:
                             style = style_heading1
                     
-                    # Handle alignment
                     if paragraph.alignment:
-                        if paragraph.alignment == 1:  # CENTER
+                        if paragraph.alignment == 1:
                             style = ParagraphStyle(
                                 'CenterAlign',
                                 parent=style,
                                 alignment=TA_CENTER
                             )
-                        elif paragraph.alignment == 2:  # RIGHT
+                        elif paragraph.alignment == 2:
                             style = ParagraphStyle(
                                 'RightAlign',
                                 parent=style,
                                 alignment=TA_RIGHT
                             )
-                        elif paragraph.alignment == 3:  # JUSTIFY
+                        elif paragraph.alignment == 3:
                             style = ParagraphStyle(
                                 'JustifyAlign',
                                 parent=style,
                                 alignment=TA_JUSTIFY
                             )
                     
-                    # Add paragraph to PDF
                     p = Paragraph(text, style)
                     story.append(p)
-                    story.append(Spacer(1, 6))  # Space between paragraphs
+                    story.append(Spacer(1, 6))
             
-            # Extract text from tables
             for table in doc.tables:
                 for row in table.rows:
                     for cell in row.cells:
                         if cell.text.strip():
-                            # Handle each paragraph in the cell
                             for para in cell.paragraphs:
                                 if para.text.strip():
                                     p = Paragraph(para.text, style_normal)
                                     story.append(p)
-                            story.append(Spacer(1, 3))  # Small space between cells
-                story.append(Spacer(1, 12))  # Space after tables
+                            story.append(Spacer(1, 3))
+                story.append(Spacer(1, 12))
             
-            # Extract header and footer text
             for section in doc.sections:
                 # Header
                 if section.header:
@@ -3092,7 +2934,6 @@ class AppLogicMixin:
                             p = Paragraph(para.text, header_style)
                             story.append(p)
                 
-                # Footer
                 if section.footer:
                     for para in section.footer.paragraphs:
                         if para.text.strip():
@@ -3105,27 +2946,21 @@ class AppLogicMixin:
                             p = Paragraph(para.text, footer_style)
                             story.append(p)
             
-            # Build PDF
             if story:
                 doc_template.build(story)
             else:
-                # If no content, create PDF with a message
                 doc_template.build([Paragraph("Document vide ou conversion non supportée", style_normal)])
             
-            # Save PDF
             with open(pdf_path, 'wb') as f:
                 f.write(buffer.getvalue())
             
             buffer.close()
             
-            # Check if PDF was created
             if os.path.getsize(pdf_path) < 1024:
-                # Try a fallback method
                 self.convert_docx_to_pdf_fallback(docx_path, pdf_path)
                 
         except Exception as e:
             print(f"Advanced Word to PDF conversion error: {e}")
-            # Try an easier method
             try:
                 self.convert_docx_to_pdf_simple(docx_path, pdf_path)
             except Exception as e2:
@@ -3143,7 +2978,6 @@ class AppLogicMixin:
             c = canvas.Canvas(pdf_path, pagesize=A4)
             width, height = A4
             
-            # Configuration
             margin_left = 72
             margin_right = 72
             margin_top = 72
@@ -3161,7 +2995,6 @@ class AppLogicMixin:
             for paragraph in doc.paragraphs:
                 text = paragraph.text.strip()
                 if text:
-                    # Detect headings
                     is_heading = False
                     if paragraph.style and paragraph.style.name:
                         heading_keywords = ['Heading', 'Titre', 'Title', 'heading', 'titre', 'title']
@@ -3178,9 +3011,8 @@ class AppLogicMixin:
                             c.setFont("Helvetica-Bold", 14)
                     else:
                         c.setFont("Helvetica", 11)
-                        y_position -= line_height  # Space between paragraphs
+                        y_position -= line_height
                     
-                    # Check if a new page is needed
                     if y_position < margin_bottom:
                         c.showPage()
                         y_position = height - margin_top
@@ -3189,16 +3021,13 @@ class AppLogicMixin:
                         else:
                             c.setFont("Helvetica", 11)
                     
-                    # Split text into lines that fit the width
                     words = text.split()
                     lines = []
                     current_line = []
                     
                     for word in words:
-                        # Test if the word can be added to the current line
                         test_line = ' '.join(current_line + [word])
-                        # Estimate text width (rough approximation)
-                        estimated_width = len(test_line) * 6.5  # Rule of thumb
+                        estimated_width = len(test_line) * 6.5
                         
                         if estimated_width <= usable_width:
                             current_line.append(word)
@@ -3207,11 +3036,9 @@ class AppLogicMixin:
                                 lines.append(' '.join(current_line))
                             current_line = [word]
                     
-                    # Add last line
                     if current_line:
                         lines.append(' '.join(current_line))
                     
-                    # Display each line
                     for line in lines:
                         if y_position < margin_bottom:
                             c.showPage()
@@ -3224,13 +3051,11 @@ class AppLogicMixin:
                         c.drawString(margin_left, y_position, line)
                         y_position -= line_height
                     
-                    # Additional space after headings
                     if is_heading:
                         y_position -= 8
             
-            # Save PDF
             c.save()
-            
+        
         except Exception as e:
             print(f"Simple Word to PDF conversion error: {e}")
             raise
@@ -3239,8 +3064,6 @@ class AppLogicMixin:
         """Extract table data from XML element"""
         try:
             from docx.table import Table as DocxTable
-            from docx.oxml.table import CT_Tbl
-            from docx.oxml.text.paragraph import CT_P
             
             table_data = []
             
@@ -3369,34 +3192,28 @@ class AppLogicMixin:
             line_height = 14
             margin = 72
             
-            # Maximum width for text
             max_width = width - 2 * margin
             
             for paragraph in doc.paragraphs:
                 text = paragraph.text.strip()
                 if text:
-                    # Split text into lines with reportlab
                     lines = simpleSplit(text, "Helvetica", 11, max_width)
                     
-                    # Check available space
                     needed_space = len(lines) * line_height
                     if y_position - needed_space < margin:
                         c.showPage()
                         y_position = height - margin
                     
-                    # Display each line
                     for line in lines:
                         c.drawString(margin, y_position, line)
                         y_position -= line_height
                     
-                    # Space between paragraphs
                     y_position -= 6
             
             c.save()
         
         except Exception as e:
             print(f"Fallback Word to PDF conversion error: {e}")
-            # Create minimal PDF with raw text
             self.create_minimal_pdf_from_docx(docx_path, pdf_path)
 
     def create_minimal_pdf_from_docx(self, docx_path, pdf_path):
@@ -3411,15 +3228,12 @@ class AppLogicMixin:
             line_height = 12
             margin = 50
             
-            # Collect all text
             all_text = []
             for paragraph in doc.paragraphs:
                 if paragraph.text.strip():
                     all_text.append(paragraph.text)
             
-            # Write all text
             for text in all_text:
-                # Split if too long
                 words = text.split()
                 lines = []
                 current_line = []
@@ -3436,7 +3250,6 @@ class AppLogicMixin:
                 if current_line:
                     lines.append(' '.join(current_line))
                 
-                # Write lines
                 for line in lines:
                     if y_position < margin:
                         c.showPage()
@@ -3445,14 +3258,12 @@ class AppLogicMixin:
                     c.drawString(margin, y_position, line)
                     y_position -= line_height
                 
-                # Space between paragraphs
                 y_position -= 6
             
             c.save()
         
         except Exception as e:
             print(f"Minimal PDF creation error: {e}")
-            # Create an error PDF
             self.create_empty_pdf_with_message(pdf_path, f"Word document: {Path(docx_path).name}")
 
     def create_empty_pdf_with_message(self, pdf_path, message):
@@ -3471,11 +3282,9 @@ class AppLogicMixin:
             if _def_id:
                 (self._ensure_template_manager() or object()).apply_template(_def_id, self)
 
-        # Apply template settings if a template is active
         if hasattr(self, 'active_templates') and 'images_to_pdf' in self.active_templates:
             self.config['separate_image_pdfs'] =                 self.active_templates['images_to_pdf'].get('separate', False)
 
-        # Determine files to process
         selected_items = self.files_list_widget.selectedItems()
         files_to_process = []
         if selected_items:
@@ -3494,7 +3303,6 @@ class AppLogicMixin:
             QMessageBox.warning(self, self.translate_text("Avertissement"), msg)
             return
 
-        # Save source format before conversion
         for file_path in image_files:
             ext = Path(file_path).suffix.lower().lstrip('.')
             if ext == 'jpeg':
@@ -3502,10 +3310,8 @@ class AppLogicMixin:
             if ext in ['jpg', 'png']:
                 self.achievement_system.mark_format_as_used(ext)
 
-        # Save target format
         self.achievement_system.mark_format_as_used("pdf")
 
-        # Check setting to decide strategy
         separate_mode = self.config.get("separate_image_pdfs", False)
         current_hour = datetime.now().hour
         is_night_time = 0 <= current_hour < 6
@@ -3535,13 +3341,12 @@ class AppLogicMixin:
         current_hour = datetime.now().hour
         is_night_time = 0 <= current_hour < 6
         
-        import fitz  # PyMuPDF — lazy import
+        import fitz
         for i, file_path in enumerate(image_files):
             try:
                 base_name = Path(file_path).stem
                 output_file = os.path.join(output_dir, f"{base_name}.pdf")
                 
-                # Convert image to PDF
                 pdf_document = fitz.open()
                 img = fitz.open(file_path)
                 rect = img[0].rect
@@ -3554,7 +3359,6 @@ class AppLogicMixin:
                 file_size = os.path.getsize(file_path)
                 total_size += file_size
                 
-                # Individual record for each image
                 self.db_manager.add_conversion_record(
                     source_file=file_path,
                     source_format=Path(file_path).suffix.upper().replace('.', ''),
@@ -3575,7 +3379,6 @@ class AppLogicMixin:
                 self.progress_bar.setValue(progress)
                 
             except Exception as e:
-                # Individual failure record
                 self.db_manager.add_conversion_record(
                     source_file=file_path,
                     source_format=Path(file_path).suffix.upper().replace('.', ''),
@@ -3606,7 +3409,6 @@ class AppLogicMixin:
             self.achievement_system.update_stat("recent_batch_time", total_time)
             self.achievement_system.check_speed_conversion(success_count, total_time)
         
-        # Success message
         message = self.translate_text("images_converted_separate").format(
             success_count=success_count,
             num_images=num_images,
@@ -3630,7 +3432,6 @@ class AppLogicMixin:
             self.show_progress(True, self.translate_text(f"Traitement de {num_images} image(s)..."))
             
             if is_merge_operation:
-                # Merge all images into one PDF
                 default_filename = f"fusion_images_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
                 default_dir = self.config.get("default_output_folder")
                 if default_dir and os.path.exists(default_dir):
@@ -3680,11 +3481,9 @@ class AppLogicMixin:
                     
                     conversion_time = (datetime.now() - start_time).total_seconds()
                     
-                    # Record stats
                     self.achievement_system.update_stat("recent_batch_files", num_images)
                     self.achievement_system.update_stat("recent_batch_time", conversion_time)
                     
-                    # Record success
                     for img_file in image_files:
                         img_size = os.path.getsize(img_file) if os.path.exists(img_file) else 0
                         self.achievement_system.record_conversion("image_to_pdf", img_size, True)
@@ -3715,7 +3514,6 @@ class AppLogicMixin:
                         self.system_notifier.send("image_to_pdf")
                     QMessageBox.information(self, self.translate_text("Succès"), message)
                     
-                    # Flash Gordon attempt
                     if num_images >= 50 and conversion_time <= 300:
                         print(f"[DEBUG] Flash Gordon attempt: {num_images} images merged in {conversion_time:.3f}s")
                         self.achievement_system.check_speed_conversion(num_images, conversion_time)
@@ -3725,7 +3523,6 @@ class AppLogicMixin:
                     raise e
                     
             elif num_images == 1:
-                # Case: single image → 1 PDF
                 file_path = image_files[0]
                 default_filename = f"{Path(file_path).stem}.pdf"
                 output_file = self.get_output_directory(default_filename)
@@ -3777,7 +3574,6 @@ class AppLogicMixin:
         
         except Exception as e:
             self.show_progress(False)
-            # Record failure
             self.db_manager.add_conversion_record(
                 source_file=", ".join([Path(f).name for f in image_files]) if image_files else "Unknown",
                 source_format="Image",
@@ -3796,43 +3592,35 @@ class AppLogicMixin:
             )
 
     def merge_pdfs(self):
-        from app.ui import MergeOrderDialog  # lazy import — avoids circular dependency
+        from app.ui import MergeOrderDialog
         if not (hasattr(self, 'active_templates') and 'pdf_merge' in self.active_templates):
             _def_id, _ = (self._ensure_template_manager() or object()).get_default_template('Fusion PDF')
             if _def_id:
                 (self._ensure_template_manager() or object()).apply_template(_def_id, self)
 
-        # 1. Determine file list to process
         selected_items = self.files_list_widget.selectedItems()
         files_to_process = []
         
         if selected_items:
-            # If selection: browse the complete list to keep visual order
-            # But only keep those which are selected
             for i in range(self.files_list_widget.count()):
                 item = self.files_list_widget.item(i)
                 if item.isSelected():
                     files_to_process.append(item.data(Qt.UserRole))
         else:
-            # Otherwise: take all
             files_to_process = self.files_list
         
-        # 2. Filter only PDF
         pdf_files = [f for f in files_to_process if f.lower().endswith('.pdf')]
         
-        # 3. Check number of files
         if len(pdf_files) < 2:
             msg = self.translate_text("Veuillez sélectionner au moins 2 fichiers PDF") if selected_items else self.translate_text("La liste doit contenir au moins 2 fichiers PDF")
             QMessageBox.warning(self, self.translate_text("Avertissement"), msg)
             return
 
-        # 4. Merge order — bypass dialog if a template is active with a non-manual order
         _pre_key = None
         if hasattr(self, 'active_templates') and 'pdf_merge' in self.active_templates:
             _pre_key = self.active_templates['pdf_merge'].get('merge_order_key')
 
         if _pre_key and _pre_key != 'manual':
-            # Apply the order directly without opening the dialog
             import re as _re
             if _pre_key == 'alpha_az':
                 pdf_files.sort(key=lambda f: Path(f).name.lower())
@@ -3852,16 +3640,13 @@ class AppLogicMixin:
                 pdf_files.sort(key=lambda f: os.path.getmtime(f))
             elif _pre_key == 'date_desc':
                 pdf_files.sort(key=lambda f: os.path.getmtime(f), reverse=True)
-            # 'current' — no sorting, list order is preserved
         else:
-            # No template or manual order — open the dialog
             order_dlg = MergeOrderDialog(pdf_files, "PDF", self, self.current_language,
                                          pre_select_key=_pre_key)
             if order_dlg.exec() != QDialog.Accepted:
                 return
             pdf_files = order_dlg.get_ordered_files()
 
-        # Output filename from the active template if set
         if hasattr(self, 'active_templates') and 'pdf_merge' in self.active_templates:
             _rn = self.active_templates['pdf_merge'].get('resolved_name', '')
             default_filename = _rn if _rn else f"fusion_pdf_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
@@ -3882,28 +3667,23 @@ class AppLogicMixin:
             for file_path in pdf_files:
                 merger.append(file_path)
             
-            # Write PDF file
             output_file_path = output_file
             with open(output_file_path, 'wb') as output_pdf:
                 merger.write(output_pdf)
             
-            # Close merger before trying to read the file
             merger.close()
             
-            # Small delay to ensure the file is written to disk
             time.sleep(0.2) 
             
-            import fitz  # PyMuPDF — lazy import
+            import fitz
             pages_count = 0
             try:
-                # Try to open the output PDF file
                 pdf_document = fitz.open(output_file_path)
                 pages_count = len(pdf_document)
                 pdf_document.close()
                 print(f"[DEBUG MERGE] Pages counted in final PDF: {pages_count}")
             except Exception as e:
                 print(f"[WARNING MERGE] Error reading pages from final PDF: {e}")
-                # In case of failure, try a backup method (count pages from source files)
                 pages_count = sum(fitz.open(f).page_count for f in pdf_files)
                 print(f"[DEBUG MERGE] Pages counted via sources (fallback): {pages_count}")
             
@@ -3951,13 +3731,12 @@ class AppLogicMixin:
             )
 
     def merge_word_docs(self):
-        from app.ui import MergeOrderDialog  # lazy import — avoids circular dependency
+        from app.ui import MergeOrderDialog
         if not (hasattr(self, 'active_templates') and 'word_merge' in self.active_templates):
             _def_id, _ = (self._ensure_template_manager() or object()).get_default_template('Fusion Word')
             if _def_id:
                 (self._ensure_template_manager() or object()).apply_template(_def_id, self)
 
-        # 1. Determine files list to process
         selected_items = self.files_list_widget.selectedItems()
         files_to_process = []
         
@@ -3969,22 +3748,18 @@ class AppLogicMixin:
         else:
             files_to_process = self.files_list
         
-        # 2. Filter only Word files
         word_files = [f for f in files_to_process if f.lower().endswith(('.docx', '.doc'))]
         
-        # 3. Check number of files
         if len(word_files) < 2:
             msg = self.translate_text("Veuillez sélectionner au moins 2 fichiers Word") if selected_items else self.translate_text("La liste doit contenir au moins 2 fichiers Word")
             QMessageBox.warning(self, self.translate_text("Avertissement"), msg)
             return
 
-        # 4. Merge order — bypass dialog if a template is active with a non-manual order
         _pre_key = None
         if hasattr(self, 'active_templates') and 'word_merge' in self.active_templates:
             _pre_key = self.active_templates['word_merge'].get('merge_order_key')
 
         if _pre_key and _pre_key != 'manual':
-            # Apply the order directly without opening the dialog
             import re as _re
             if _pre_key == 'alpha_az':
                 word_files.sort(key=lambda f: Path(f).name.lower())
@@ -4004,16 +3779,13 @@ class AppLogicMixin:
                 word_files.sort(key=lambda f: os.path.getmtime(f))
             elif _pre_key == 'date_desc':
                 word_files.sort(key=lambda f: os.path.getmtime(f), reverse=True)
-            # 'current' — no sorting, list order is preserved
         else:
-            # No template or manual order — open the dialog
             order_dlg = MergeOrderDialog(word_files, "Word", self, self.current_language,
                                          pre_select_key=_pre_key)
             if order_dlg.exec() != QDialog.Accepted:
                 return
             word_files = order_dlg.get_ordered_files()
 
-        # Output filename from the active template if set
         if hasattr(self, 'active_templates') and 'word_merge' in self.active_templates:
             _rn = self.active_templates['word_merge'].get('resolved_name', '')
             default_filename = _rn if _rn else f"fusion_word_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
@@ -4098,7 +3870,6 @@ class AppLogicMixin:
             if _def_id:
                 (self._ensure_template_manager() or object()).apply_template(_def_id, self)
 
-        # ── Collect all PDFs from the file list
         all_pdf_files = [f for f in self.files_list if f.lower().endswith('.pdf')]
         if not all_pdf_files:
             QMessageBox.warning(
@@ -4108,7 +3879,6 @@ class AppLogicMixin:
             )
             return
 
-        # ── If items are selected in the widget, use only those; otherwise use all
         selected_paths = []
         for i in range(self.files_list_widget.count()):
             item = self.files_list_widget.item(i)
@@ -4119,7 +3889,6 @@ class AppLogicMixin:
 
         pdf_files = selected_paths if selected_paths else all_pdf_files
 
-        # ── Open split dialog based on first file's page count
         try:
             with open(pdf_files[0], 'rb') as f:
                 total_pages_first = len(PdfReader(f).pages)
@@ -4133,13 +3902,11 @@ class AppLogicMixin:
 
         dialog = SplitDialog(total_pages_first, self, self.current_language)
 
-        # ── Show file count in the dialog title when processing multiple files
         if len(pdf_files) > 1:
             dialog.setWindowTitle(
                 self.translate_text("Diviser PDF") + f"  —  {len(pdf_files)} " + self.translate_text("fichiers")
             )
 
-        # ── Pre-fill dialog settings from template if available
         _bypass_dialog = False
         if hasattr(self, 'active_templates') and 'pdf_split' in self.active_templates:
             _st = self.active_templates['pdf_split']
@@ -4160,7 +3927,6 @@ class AppLogicMixin:
         if not output_dir:
             return
 
-        # ── Process each PDF; silent=True suppresses per-file popups in batch mode
         suffix        = self.translate_text("split_folder_suffix")
         success_count = 0
         failed_files  = []
@@ -4202,7 +3968,6 @@ class AppLogicMixin:
                     notes=f"Error: {str(e)}"
                 )
 
-        # ── Show a single summary popup when multiple files were processed
         if len(pdf_files) > 1:
             lines = [
                 self.translate_text("split_result_summary").format(
@@ -4245,7 +4010,6 @@ class AppLogicMixin:
                 self.achievement_system.record_pdf_split(total_pages)
 
                 if method == dialog.translate_text("Toutes les pages"):
-                    # ── One output file per page
                     for page_num in range(total_pages):
                         pdf_writer = PdfWriter()
                         pdf_writer.add_page(pdf_reader.pages[page_num])
@@ -4255,7 +4019,6 @@ class AppLogicMixin:
                     message = self.translate_text("pdf_split_into_parts").format(file_count=total_pages)
 
                 elif method == dialog.translate_text("Par pages"):
-                    # ── Split into chunks of N pages
                     interval   = dialog.page_interval.value()
                     file_count = 0
                     for i in range(0, total_pages, interval):
@@ -4270,7 +4033,6 @@ class AppLogicMixin:
                     message = self.translate_text("pdf_split_into_files").format(total_pages=total_pages)
 
                 elif method == dialog.translate_text("Plage de pages"):
-                    # ── Extract a specific page range
                     start = dialog.start_page.value() - 1
                     end   = dialog.end_page.value()
                     pdf_writer = PdfWriter()
@@ -4288,7 +4050,6 @@ class AppLogicMixin:
                         end_page=end
                     )
 
-                # ── In single-file mode, show popup and notify here
                 if not silent:
                     if self.config.get("enable_system_notifications", True):
                         self.system_notifier.send("split_pdf")
@@ -4299,17 +4060,15 @@ class AppLogicMixin:
             QMessageBox.critical(self, self.translate_text("Erreur"), message)
 
     def protect_pdf(self):
-        from app.ui import PdfProtectionDialog  # lazy import — avoids circular dependency
+        from app.ui import PdfProtectionDialog 
         if not (hasattr(self, 'active_templates') and 'pdf_protection' in self.active_templates):
             _def_id, _ = (self._ensure_template_manager() or object()).get_default_template('Protection PDF')
             if _def_id:
                 (self._ensure_template_manager() or object()).apply_template(_def_id, self)
 
-        # 1. Determine files to process
         selected_items = self.files_list_widget.selectedItems()
         
         if selected_items:
-            # CASE 2 and 3 : User selected files
             files_to_process = []
             for i in range(self.files_list_widget.count()):
                 item = self.files_list_widget.item(i)
@@ -4319,10 +4078,8 @@ class AppLogicMixin:
                     if file_path.lower().endswith('.pdf'):
                         files_to_process.append(file_path)
         else:
-            # CASE 1 : No selection → Take all PDF of the list
             files_to_process = [f for f in self.files_list if f.lower().endswith('.pdf')]
         
-        # Verify if there's PDF to process
         if not files_to_process:
             if selected_items:
                 msg = self.translate_text("Aucun fichier PDF sélectionné. Veuillez sélectionner au moins un fichier PDF.")
@@ -4331,12 +4088,10 @@ class AppLogicMixin:
             QMessageBox.warning(self, self.translate_text("Avertissement"), msg)
             return
         
-        # If a template is active, configure permissions from it
         if hasattr(self, 'active_templates') and 'pdf_protection' in self.active_templates:
             tpl = self.active_templates['pdf_protection']
             _mode = tpl.get('mode', 'basic')
 
-            # Build the pypdf permissions object from the template settings
             from pypdf.constants import UserAccessPermissions
             _perms = UserAccessPermissions(0)
             if tpl.get('allow_printing', True):
@@ -4356,11 +4111,9 @@ class AppLogicMixin:
                 _perms |= UserAccessPermissions.ASSEMBLE_DOC
 
             if _mode == 'advanced':
-                # Advanced — open PdfProtectionDialog pre-configured for the password
                 dialog = PdfProtectionDialog(self, self.current_language)
-                dialog.mode_combo.setCurrentIndex(1)  # Avancé
+                dialog.mode_combo.setCurrentIndex(1)
                 dialog._on_mode_changed(1)
-                # Pre-check permissions according to the template
                 dialog.allow_print_check.setChecked(tpl.get('allow_printing', True))
                 dialog.allow_copy_check.setChecked(tpl.get('allow_copying', True))
                 dialog.allow_copy_accessibility_check.setChecked(tpl.get('allow_copy_accessibility', True))
@@ -4373,36 +4126,30 @@ class AppLogicMixin:
                 password    = dialog.get_password()
                 permissions = dialog.get_permissions()
             else:
-                # Basic mode — launch directly without a dialog
                 password    = None
                 permissions = _perms
 
         else:
-            # No template selected → use normal dialog
             dialog = PdfProtectionDialog(self, self.current_language)
             if dialog.exec() != QDialog.Accepted:
                 return
             password    = dialog.get_password()
             permissions = dialog.get_permissions()
 
-        # Ask for output folder
         output_dir = self.get_output_directory()
         if not output_dir:
             return
 
-        # Process files
         success_count = 0
         start_time = datetime.now()
 
         for pdf_file in files_to_process:
             try:
-                # Create name of output file
                 if selected_items:
                     output_file = os.path.join(output_dir, f"protected_{Path(pdf_file).name}")
                 else:
                     output_file = os.path.join(output_dir, Path(pdf_file).name)
 
-                # Avoid overwrite
                 counter = 1
                 base_name = Path(output_file).stem
                 extension = Path(output_file).suffix
@@ -4417,20 +4164,14 @@ class AppLogicMixin:
                 pdf_writer = PdfWriter()
                 for page in pdf_reader.pages:
                     pdf_writer.add_page(page)
-
-                # Always use a distinct owner_password so PDF readers
-                # cannot bypass restrictions by treating the user as owner.
-                # (PDF spec: if user_pw == owner_pw the reader grants full access.)
+                
                 import secrets
-                owner_password = secrets.token_hex(24)  # 48-char random string
+                owner_password = secrets.token_hex(24)
 
                 if password:
-                    # Advanced: user password + random owner password + permissions
                     pdf_writer.encrypt(password, owner_password=owner_password,
                                        permissions_flag=permissions)
                 else:
-                    # Basic: no user password, but still lock with a random owner
-                    # password so that permission restrictions are enforced.
                     pdf_writer.encrypt("", owner_password=owner_password,
                                        permissions_flag=permissions)
 
@@ -4477,7 +4218,6 @@ class AppLogicMixin:
 
         total_time = (datetime.now() - start_time).total_seconds()
 
-        # Show result (once, after all files are processed)
         if selected_items:
             message = self.translate_text("selected_pdfs_protected").format(
                 success_count=success_count,
@@ -4491,7 +4231,6 @@ class AppLogicMixin:
 
         QMessageBox.information(self, self.translate_text("Succès"), self.translate_text(message))
 
-        # Optional : Open folder containing protected files
         if success_count > 0 and self.config.get("enable_notifications", True):
             self.achievement_system.mark_format_as_used("pdf")
             reply = QMessageBox.question(
@@ -4576,16 +4315,13 @@ class AppLogicMixin:
             folder_list.setText(folder_text)
             layout.addWidget(folder_list)
             
-            # Compression options
             options_group = QGroupBox(self.translate_text("Options de compression"))
             options_layout = QVBoxLayout(options_group)
             
-            # 1st Option: Folders with structure
             option1 = QRadioButton(self.translate_text("📦 Compresser les dossiers avec leur structure (recommandé)"))
             option1.setChecked(True)
             option1.setToolTip(self.translate_text("Crée des archives avec la structure complète des dossiers"))
             
-            # 2nd Option: Folders as individual files
             option2 = QRadioButton(self.translate_text("📄 Traiter les dossiers comme des fichiers individuels"))
             option2.setToolTip(self.translate_text("Ajoute tous les fichiers des dossiers sans conserver la structure"))
             
@@ -4611,10 +4347,8 @@ class AppLogicMixin:
             if dialog.exec() != QDialog.Accepted:
                 return
         
-        # If a compression template is active, bypass CompressionDialog
         if hasattr(self, 'active_templates') and 'compression' in self.active_templates:
             tpl = self.active_templates['compression']
-            # Build settings directly from the template
             _fmt_map = {
                 'ZIP': self.translate_text('ZIP'), 'RAR': self.translate_text('RAR'),
                 'TAR.GZ': self.translate_text('TAR.GZ'), 'TAR': self.translate_text('TAR'),
@@ -4631,9 +4365,8 @@ class AppLogicMixin:
             _encrypt = tpl.get('encrypt', False)
             _delete = tpl.get('delete_originals', False)
 
-            # Default archive name
             if compression_mode == "folders_with_structure" and folders_to_compress:
-                _name = Path(folders_to_compress[0]).name if len(folders_to_compress) == 1                     else f"folders_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                _name = Path(folders_to_compress[0]).name if len(folders_to_compress) == 1 else f"folders_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
             else:
                 _name = f"archive_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
@@ -4647,7 +4380,6 @@ class AppLogicMixin:
                 'delete_originals': _delete,
             }
 
-            # If encryption is active, ask for the password before launching
             if _encrypt:
                 pwd_dialog = PasswordDialog(self, self.current_language)
                 if pwd_dialog.exec() != QDialog.Accepted:
@@ -4662,7 +4394,6 @@ class AppLogicMixin:
                                         self.translate_text("Les mots de passe ne correspondent pas"))
                     return
 
-            # Ask for the output folder then launch the operation
             output_dir = self.get_output_directory()
             if not output_dir:
                 return
@@ -4677,7 +4408,6 @@ class AppLogicMixin:
             password          = password if _encrypt else None
 
         else:
-            # No template selected → use normal dialog
             dialog = CompressionDialog(self, self.current_language)
             dialog.split_checkbox.setEnabled(True)
             if compression_mode == "folders_with_structure" and folders_to_compress:
@@ -4721,10 +4451,7 @@ class AppLogicMixin:
                 else:
                     return
 
-        # The variables archive_format, compression_level, etc. are defined
-        # in both branches (template or dialog) above
         archive_format = archive_format.lower()
-        # Normalize names to correspond to DB
         norm_map = {
             'tar.gz': 'gz',
             'tar': 'tar',
@@ -4746,7 +4473,6 @@ class AppLogicMixin:
                             self.translate_text("Veuillez entrer un nom pour l'archive"))
             return
         
-        # Ask for output folder
         output_dir = self.get_output_directory()
         if not output_dir:
             return
@@ -5069,12 +4795,10 @@ class AppLogicMixin:
             password_length = len(password) if password else 0
             fmt_lower = archive_format.lower()
             
-            # If ZIP or RAR with password >= 12
             if password and password_length >= 12 and fmt_lower in ['zip', 'rar']:
                 print(f"[DEBUG] Attempting Impenetrable Fortress achievement: 1 archive, Pwd len: {password_length}")
                 self.achievement_system.record_archive_protection(1, password_length, fmt_lower)
             
-            # Compression logic
             if split_size > 0 and archive_format in ["ZIP", self.translate_text("ZIP")]:
                 print(f"[DEBUG] Creating split ZIP with WinRAR - max size: {split_size}MB")
                 success = self.create_split_zip_archive(archive_path, files_to_compress, compression_level, password, split_size)
@@ -5109,7 +4833,6 @@ class AppLogicMixin:
                     base_stem = base_path.stem
                     
                     if archive_format in ["ZIP", self.translate_text("ZIP")]:
-                        # For ZIP splitted: search .zip, .z01, .z02, etc...
                         # 1st Format: .zip (main file)
                         if os.path.exists(archive_path):
                             parts_created.append(Path(archive_path))
@@ -5133,7 +4856,6 @@ class AppLogicMixin:
                             parts_created.extend(part_parts)
                     
                     elif archive_format in ["RAR", self.translate_text("RAR")]:
-                        # For split RAR archives: search .rar, .r00, .r01, etc. and .part01.rar, etc.
                         # 1st Format: .rar (main file)
                         if os.path.exists(archive_path):
                             parts_created.append(Path(archive_path))
@@ -5262,23 +4984,20 @@ class AppLogicMixin:
         if archive_format in ["ZIP", self.translate_text("ZIP")]:
             # Patterns for ZIP split
             patterns = [
-                f"{base_stem}{extension}",  # Main file .zip
-                f"{base_stem}.z*",           # .z01, .z02, etc...
-                f"{base_stem}{extension}.*", # .zip.001, .zip.002, etc...
-                f"{base_stem}.part*{extension}",  # .part01.zip, .part02.zip, etc...
+                f"{base_stem}{extension}",
+                f"{base_stem}.z*",
+                f"{base_stem}{extension}.*",
+                f"{base_stem}.part*{extension}",
             ]
         elif archive_format in ["RAR", self.translate_text("RAR")]:
-            # Patterns for RAR split
             patterns = [
-                f"{base_stem}{extension}",  # Main file .rar
-                f"{base_stem}.r*",           # .r00, .r01, etc...
-                f"{base_stem}.part*{extension}",  # .part01.rar, .part02.rar, etc...
+                f"{base_stem}{extension}",
+                f"{base_stem}.r*",
+                f"{base_stem}.part*{extension}",
             ]
         else:
-            # Non-split or unknown format
             patterns = [f"{base_stem}{extension}"]
         
-        # Search for all corresponding files
         for pattern in patterns:
             try:
                 files = list(base_dir.glob(pattern))
@@ -5288,7 +5007,6 @@ class AppLogicMixin:
             except:
                 continue
         
-        # Sort by name
         parts_created.sort()
         
         return parts_created
@@ -5303,14 +5021,13 @@ class AppLogicMixin:
                 r"C:\Program Files\WinRAR\WinRAR.exe",
                 r"C:\Program Files (x86)\WinRAR\WinRAR.exe",
                 r"C:\Program Files\WinRAR\Rar.exe",
-                "rar",  # If in the PATH
-                "winrar"  # If in the PATH
+                "rar",
+                "winrar"
             ]
             
             winrar_exe = None
             for path in winrar_paths:
                 if path in ["rar", "winrar"]:
-                    # Check in the PATH
                     try:
                         import subprocess
                         result = subprocess.run([path, "--version"], capture_output=True, shell=True)
@@ -5331,7 +5048,6 @@ class AppLogicMixin:
             
             print(f"[DEBUG] WinRAR found: {winrar_exe}")
             
-            # Create a temporary file list
             import tempfile
             with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt', encoding='utf-8') as f:
                 for file_path in files_to_compress:
@@ -5344,7 +5060,6 @@ class AppLogicMixin:
             print(f"[DEBUG] List file created: {list_file}")
             
             try:
-                # Build WinRAR command to create a split ZIP
                 compression_map = {
                     self.translate_text("Normal"): "-m3",
                     self.translate_text("Haute compression"): "-m5", 
@@ -5353,44 +5068,34 @@ class AppLogicMixin:
                 
                 compression_args = compression_map.get(compression_level, "-m3")
                 
-                # Build entire command to create split ZIP
                 cmd = [winrar_exe, 'a']
                 
-                # Add compression arguments
                 cmd.append(compression_args)
                 
-                # ZIP FORMAT (-afzip)
                 cmd.append("-afzip")
                 
-                # Add splitting
                 cmd.append(f"-v{split_size_mb}M")
                 print(f"[DEBUG] Splitting enabled: {split_size_mb}MB per part")
                 
-                # Add password if specified
                 if password:
                     cmd.append(f"-p{password}")
-                    cmd.append("-hp")  # Encrypt header files too
+                    cmd.append("-hp")
                     print("[DEBUG] Using password with header encryption")
                 else:
-                    # Do not add -p- when there's no password
                     print("[DEBUG] No password, no encryption options")
                 
-                # Silent mode and options
-                cmd.append("-ep1")  # Store relative paths
-                cmd.append("-idq")  # Silent mode
-                cmd.append("-r")    # Include subfolders
+                cmd.append("-ep1")
+                cmd.append("-idq")
+                cmd.append("-r")
                 
-                # Output file and files list
-                cmd.append(base_archive_path)  # Base path
+                cmd.append(base_archive_path)
                 cmd.append(f"@{list_file}")
                 
                 print(f"[DEBUG] WinRAR command for split ZIP: {' '.join(cmd)}")
                 
-                # Execute command
                 import subprocess
                 result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
                 
-                # Clean the list file
                 try:
                     os.unlink(list_file)
                 except:
@@ -5399,41 +5104,34 @@ class AppLogicMixin:
                 if result.returncode == 0:
                     print(f"[DEBUG] Split ZIP archive successfully created: {base_archive_path}")
                     
-                    # Check created parts
                     base_path = Path(base_archive_path)
                     base_dir = base_path.parent
                     base_stem = base_path.stem
                     
                     parts_created = []
                     
-                    # 1st Format: .zip (main file)
                     if os.path.exists(base_archive_path):
                         parts_created.append(Path(base_archive_path))
                     
-                    # 2nd Format: .z01, .z02, .z03, etc. (standard ZIP split)
                     pattern_z = f"{base_stem}.z*"
                     z_parts = sorted(base_dir.glob(pattern_z))
                     if z_parts:
                         parts_created.extend(z_parts)
                     
-                    # 3rd Format: .zip.001, .zip.002, etc. (other possible format)
                     pattern_zip_num = f"{base_stem}.zip.*"
                     zip_num_parts = sorted(base_dir.glob(pattern_zip_num))
                     if zip_num_parts:
                         parts_created.extend(zip_num_parts)
                     
-                    # 4th Format: .part01.zip, .part02.zip, etc. (uncommon format for ZIP)
                     pattern_part = f"{base_stem}.part*.zip"
                     part_parts = sorted(base_dir.glob(pattern_part))
                     if part_parts:
                         parts_created.extend(part_parts)
                     
-                    # Remove duplicates and sort
                     parts_created = sorted(set(parts_created))
                     
                     if parts_created:
                         print(f"[DEBUG] Split ZIP archive created: {len(parts_created)} parts")
-                        # Display details of each part
                         for part in sorted(parts_created):
                             size_mb = os.path.getsize(part) / (1024 * 1024)
                             print(f"[DEBUG] Part: {part.name} - {size_mb:.1f}MB")
@@ -5452,14 +5150,11 @@ class AppLogicMixin:
                     print(f"[ERROR] stdout: {result.stdout}")
                     print(f"[ERROR] stderr: {result.stderr}")
                     
-                    # Clean potentially created files
                     try:
-                        # Clean all possible formats
                         base_path = Path(base_archive_path)
                         base_dir = base_path.parent
                         base_stem = base_path.stem
                         
-                        # Patterns to clean
                         patterns_to_clean = [
                             f"{base_stem}.zip",
                             f"{base_stem}.z*",
@@ -5482,7 +5177,6 @@ class AppLogicMixin:
             except Exception as e:
                 print(f"[ERROR] Exception creating split ZIP with WinRAR: {e}")
                 
-                # Clean list file
                 try:
                     if os.path.exists(list_file):
                         os.unlink(list_file)
@@ -5502,7 +5196,6 @@ class AppLogicMixin:
         try:
             print(f"[DEBUG CREATE ZIP] Creating: {archive_path}, files: {len(files_to_compress)}, password: {'Yes' if password else 'No'}")
             
-            # Create parent folder if necessary
             os.makedirs(os.path.dirname(archive_path), exist_ok=True)
             
             if password:
@@ -5516,7 +5209,6 @@ class AppLogicMixin:
                         compression=compression_method,
                         encryption=pyzipper.WZ_AES
                     ) as zipf:
-                        # Use AES-256 for better security
                         zipf.setpassword(password.encode('utf-8'))
                         
                         for i, file_path in enumerate(files_to_compress):
@@ -5539,10 +5231,8 @@ class AppLogicMixin:
                 
                 except ImportError:
                     print("[WARNING] pyzipper not installed, using standard zipfile")
-                    # Fallback to standard zipfile without encryption
                     QMessageBox.warning(self, self.translate_text("Information"), 
                                     self.translate_text("pyzipper is not installed. Encryption not available."))
-                    # Continue without password
                     password = None
                 
                 except Exception as e:
@@ -5673,19 +5363,17 @@ class AppLogicMixin:
             print(f"[DEBUG] Creating RAR: {archive_path}")
             print(f"[DEBUG] Split size: {split_size}MB")
             
-            # Search for WinRAR in common locations
             winrar_paths = [
                 r"C:\Program Files\WinRAR\WinRAR.exe",
                 r"C:\Program Files (x86)\WinRAR\WinRAR.exe",
                 r"C:\Program Files\WinRAR\Rar.exe",
-                "rar",  # If in the PATH
-                "winrar"  # If in the PATH
+                "rar",
+                "winrar"
             ]
             
             winrar_exe = None
             for path in winrar_paths:
                 if path in ["rar", "winrar"]:
-                    # Check in the PATH
                     try:
                         import subprocess
                         result = subprocess.run([path, "--version"], capture_output=True, shell=True)
@@ -5820,7 +5508,7 @@ class AppLogicMixin:
 
     def create_tar_archive(self, archive_path, files_to_compress, archive_format, compression_level):
         """Create a TAR or TAR.GZ archive"""
-        import tarfile  # stdlib — lazy import, only needed for archive export
+        import tarfile
         compression_map = {
             "TAR.GZ": "gz",
             "TAR": None
@@ -5968,13 +5656,13 @@ class AppLogicMixin:
         tasks = [
             {"index": i, "total": len(_files),
              "input_path": fp,
-             "output_path": "",           # computed inside runner
+             "output_path": "",
              "output_dir": _outdir,
              "target_format": _target}
             for i, fp in enumerate(_files)
         ]
 
-        _total_pages = [0]   # mutable cell for the closure
+        _total_pages = [0]
 
         def _on_file_done(result):
             _total_pages[0] += result.get("pages_converted", 0)
@@ -6056,7 +5744,7 @@ class AppLogicMixin:
             raise Exception(f"{self.translate_text('PNG conversion failed')}: {str(e)}")
 
     def convert_single_image_to_pdf(self, image_path, pdf_path):
-        import fitz  # PyMuPDF — lazy import
+        import fitz
         pdf_document = fitz.open()
         img = fitz.open(image_path)
         rect = img[0].rect
@@ -6077,7 +5765,6 @@ class AppLogicMixin:
             try:
                 new_path = os.path.join(Path(old_path).parent, new_name)
 
-                # Collision guard (skip if name unchanged)
                 counter = 1
                 base_stem, ext = os.path.splitext(new_path)
                 while os.path.exists(new_path) and new_path != old_path:
@@ -6123,8 +5810,6 @@ class AppLogicMixin:
         default_dir = self.config.get("default_output_folder")
         
         if filename:
-            # Always open the file explorer — if an output folder is defined,
-            # use it as the starting directory to allow renaming.
             start_dir = os.path.join(default_dir, filename) if (default_dir and os.path.exists(default_dir)) else filename
             ext = Path(filename).suffix.lower()
             if ext == '.pdf':

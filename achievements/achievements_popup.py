@@ -105,11 +105,9 @@ class AchievementPopup(QDialog):
         
         container_layout.addWidget(icon_label)
         
-        # Content
         content_layout = QVBoxLayout()
         content_layout.setSpacing(5)
         
-        # Title
         title_text = self.translate_text("SUCCÈS DÉBLOQUÉ")
         title_label = QLabel(f"🏆 {title_text} 🏆")
         title_label.setStyleSheet("""
@@ -120,7 +118,6 @@ class AchievementPopup(QDialog):
         """)
         content_layout.addWidget(title_label)
         
-        # Achievement name
         _raw_name = self.achievement["name"]
         if isinstance(_raw_name, str):
             name = self._tm.translate_text(_raw_name)
@@ -132,7 +129,6 @@ class AchievementPopup(QDialog):
         name_label.setWordWrap(True)
         content_layout.addWidget(name_label)
         
-        # Description
         _raw_desc = self.achievement["description"]
         if isinstance(_raw_desc, str):
             description = self._tm.translate_text(_raw_desc)
@@ -147,7 +143,6 @@ class AchievementPopup(QDialog):
         desc_label.setWordWrap(True)
         content_layout.addWidget(desc_label)
         
-        # Reward
         reward_layout = QHBoxLayout()
         reward_layout.addStretch()
         
@@ -249,25 +244,21 @@ class AchievementPopup(QDialog):
     def setup_animations(self):
         """Configure animations"""
         
-        # Opacity effect
         self.opacity_effect = QGraphicsOpacityEffect(self)
         self.setGraphicsEffect(self.opacity_effect)
         
-        # Enter animation
         self.enter_animation = QPropertyAnimation(self.opacity_effect, b"opacity")
         self.enter_animation.setDuration(500)
         self.enter_animation.setStartValue(0.0)
         self.enter_animation.setEndValue(1.0)
         self.enter_animation.setEasingCurve(QEasingCurve.OutCubic)
         
-        # Exit animation
         self.exit_animation = QPropertyAnimation(self.opacity_effect, b"opacity")
         self.exit_animation.setDuration(500)
         self.exit_animation.setStartValue(1.0)
         self.exit_animation.setEndValue(0.0)
         self.exit_animation.setEasingCurve(QEasingCurve.InCubic)
         
-        # Show popup
         self.show()
         self.enter_animation.start()
         

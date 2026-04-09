@@ -46,7 +46,6 @@ if _ROOT_DIR not in _sys.path:
 
 from datetime import datetime
 
-# Local imports
 from widgets import AnimatedCheckBox
 from .terms_dialog import TermsAndPrivacyDialog
 from translations import TranslationManager
@@ -160,6 +159,7 @@ class PdfToWordDialog(QDialog):
             return "text_only"
         else:
             return "text_with_image_text"
+
 
 class ModernSplashScreen(QWidget):
     def __init__(self, config, parent=None):
@@ -402,13 +402,11 @@ class PreviewDialog(QDialog):
         self.header_label.setStyleSheet("font-size: 14px; padding: 4px 8px;")
         layout.addWidget(self.header_label)
 
-        # Central content area — filled by each preview_* method
         self.content_area = QWidget()
         self.content_layout = QVBoxLayout(self.content_area)
         self.content_layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.content_area, 1)
 
-        # Fallback label used by simple previews
         self.preview_label = QLabel()
         self.preview_label.setAlignment(Qt.AlignCenter)
         self.preview_label.setWordWrap(True)
@@ -419,7 +417,6 @@ class PreviewDialog(QDialog):
         self.close_btn.clicked.connect(self.close)
         layout.addWidget(self.close_btn)
 
-    # helpers
     def _clear_content(self):
         """Remove all widgets from content_layout (except preview_label)."""
         while self.content_layout.count():
@@ -435,7 +432,6 @@ class PreviewDialog(QDialog):
         self.content_layout.addWidget(self.preview_label)
         self.preview_label.setText(f"⚠️ {msg}")
 
-    # router
     def load_preview(self):
         ext = Path(self.file_path).suffix.lower()
         try:
@@ -468,7 +464,6 @@ class PreviewDialog(QDialog):
         except Exception as e:
             self._show_error(f"{self.translate_text('Erreur lors du chargement de l\'aperçu:')}\n{e}")
 
-    # PDF
     def preview_pdf(self):
         try:
             pdf_document = fitz.open(self.file_path)
@@ -515,7 +510,6 @@ class PreviewDialog(QDialog):
         except Exception as e:
             self._show_error(f"{self.translate_text('Erreur PDF:')} {e}")
 
-    # Image
     def preview_image(self):
         try:
             pixmap = QPixmap(self.file_path)
@@ -534,7 +528,6 @@ class PreviewDialog(QDialog):
         except Exception as e:
             self._show_error(f"{self.translate_text('Erreur image:')} {e}")
 
-    # Word
     def preview_word(self):
         try:
             from docx import Document as _DocxDocument
@@ -563,7 +556,6 @@ class PreviewDialog(QDialog):
         except Exception as e:
             self._show_error(f"{self.translate_text('Impossible de prévisualiser le document Word')}\n{e}")
 
-    # Plain text / code
     def preview_text(self, syntax=""):
         try:
             from PySide6.QtWidgets import QTextEdit
@@ -579,7 +571,6 @@ class PreviewDialog(QDialog):
         except Exception as e:
             self._show_error(f"{self.translate_text('Erreur texte:')} {e}")
 
-    # RTF
     def preview_rtf(self):
         name = Path(self.file_path).name
         self.preview_label.setParent(self.content_area)
@@ -588,7 +579,6 @@ class PreviewDialog(QDialog):
             f"🚫  {self.translate_text('Aperçu non disponible pour ce type de fichier')}\n({name})"
         )
 
-    # CSV
     def preview_csv(self):
         try:
             import csv
@@ -604,7 +594,6 @@ class PreviewDialog(QDialog):
             ncols = max(len(r) for r in rows)
             table = QTableWidget(len(rows), ncols)
             table.setHorizontalHeader
-            # First row as header
             header_row = rows[0]
             table.setHorizontalHeaderLabels(header_row + [''] * (ncols - len(header_row)))
             for ri, row in enumerate(rows[1:], 0):
@@ -618,7 +607,6 @@ class PreviewDialog(QDialog):
         except Exception as e:
             self._show_error(f"{self.translate_text('Erreur CSV:')} {e}")
 
-    # JSON
     def preview_json(self):
         try:
             import json
@@ -637,7 +625,6 @@ class PreviewDialog(QDialog):
             te.setFont(QFont("Consolas", 10))
             te.setPlainText(pretty)
 
-            # Simple JSON syntax highlighting
             class _JsonHL(QSyntaxHighlighter):
                 def highlightBlock(self, text):
                     import re
@@ -660,7 +647,6 @@ class PreviewDialog(QDialog):
         except Exception as e:
             self._show_error(f"{self.translate_text('Erreur JSON:')} {e}")
 
-    # XLSX
     def preview_xlsx(self):
         try:
             import openpyxl
@@ -690,9 +676,7 @@ class PreviewDialog(QDialog):
         except Exception as e:
             self._show_error(f"{self.translate_text('Erreur XLSX:')} {e}")
 
-    # HTML
     def preview_html(self):
-        # Attempt 1: QWebEngineView (full Chromium rendering)
         try:
             from PySide6.QtWebEngineWidgets import QWebEngineView
             from PySide6.QtCore import QUrl
@@ -704,11 +688,10 @@ class PreviewDialog(QDialog):
             self.resize(900, 700)
             return
         except ImportError:
-            pass  # QtWebEngine not available → try next
+            pass
         except Exception as e:
-            pass  # Unexpected crash → try next
+            pass
 
-        # Attempt 2: fallback to syntax-highlighted source + warning banner
         self._html_fallback_view()
 
     def _html_fallback_view(self):
@@ -729,7 +712,6 @@ class PreviewDialog(QDialog):
             self._show_error(f"Erreur lecture HTML : {e}")
             return
 
-        # Source editor
         te = QTextEdit()
         te.setReadOnly(True)
         te.setFont(QFont("Consolas", 10))
@@ -744,7 +726,6 @@ class PreviewDialog(QDialog):
                         inside each <script>…</script> block
             """
 
-            # formats (instantiated once)
             def __init__(self, document, source_text=""):
                 super().__init__(document)
 
@@ -756,20 +737,20 @@ class PreviewDialog(QDialog):
                     return f
 
                 # HTML
-                self._html_tag     = _fmt("#569cd6", bold=True)   # <div>, </p> …
-                self._html_attr    = _fmt("#9cdcfe")               # class=, href=
-                self._html_val     = _fmt("#ce9178")               # "value"
-                self._html_comment = _fmt("#6a9955", italic=True)  # <!-- -->
-                self._html_doctype = _fmt("#c586c0")               # <!DOCTYPE>
-                self._html_entity  = _fmt("#f0a070")               # &amp; &#x27;
+                self._html_tag     = _fmt("#569cd6", bold=True)
+                self._html_attr    = _fmt("#9cdcfe")
+                self._html_val     = _fmt("#ce9178")
+                self._html_comment = _fmt("#6a9955", italic=True)
+                self._html_doctype = _fmt("#c586c0")
+                self._html_entity  = _fmt("#f0a070")
 
                 # CSS
-                self._css_selector = _fmt("#d7ba7d", bold=True)    # .foo, #bar, div
-                self._css_prop     = _fmt("#9cdcfe")               # color:, margin:
-                self._css_val      = _fmt("#ce9178")               # red, 12px, #fff
-                self._css_atrule   = _fmt("#c586c0", bold=True)    # @media, @import
-                self._css_comment  = _fmt("#6a9955", italic=True)  # /* … */
-                self._css_number   = _fmt("#b5cea8")               # 42px, 1.5em
+                self._css_selector = _fmt("#d7ba7d", bold=True)
+                self._css_prop     = _fmt("#9cdcfe")
+                self._css_val      = _fmt("#ce9178")
+                self._css_atrule   = _fmt("#c586c0", bold=True)
+                self._css_comment  = _fmt("#6a9955", italic=True)
+                self._css_number   = _fmt("#b5cea8")
 
                 # JS
                 self._js_keyword   = _fmt("#569cd6", bold=True)
@@ -800,9 +781,6 @@ class PreviewDialog(QDialog):
                     "history","screen","alert","confirm","prompt",
                 }
 
-                # Compute <style> and <script> line ranges directly from
-                # source_text — BEFORE the document is populated, to avoid
-                # triggering highlightBlock → toPlainText() → infinite loop.
                 self._style_ranges  = []
                 self._script_ranges = []
                 if source_text:
@@ -829,7 +807,6 @@ class PreviewDialog(QDialog):
                         inner_end = inner_start + mc.start() if mc else len(text)
                         target.append((_line_of_pos(inner_start), _line_of_pos(inner_end)))
 
-            # helpers
             def _in_range(self, block_num, ranges):
                 return any(s <= block_num <= e for s, e in ranges)
 
@@ -837,7 +814,6 @@ class PreviewDialog(QDialog):
                 for m in re.finditer(pattern, text, flags):
                     self.setFormat(m.start(), len(m.group()), fmt)
 
-            # main entry
             def highlightBlock(self, text):
                 bn = self.currentBlock().blockNumber()
                 in_style  = self._in_range(bn, self._style_ranges)
@@ -855,8 +831,7 @@ class PreviewDialog(QDialog):
                 self._apply(text, r'<!--.*?-->', self._html_comment)
                 self._apply(text, r'<!DOCTYPE[^>]*>', self._html_doctype, re.IGNORECASE)
                 self._apply(text, r'</?[\w\-:.]+', self._html_tag)
-                self._apply(text, r'\b[\w\-:]+=', self._html_attr)   # remove trailing =
-                # fix: re-colour just the name (strip the =)
+                self._apply(text, r'\b[\w\-:]+=', self._html_attr)
                 for m in re.finditer(r'\b([\w\-:]+)=', text):
                     self.setFormat(m.start(1), len(m.group(1)), self._html_attr)
                 self._apply(text, r'(["\'])(?:(?!\1).)*\1', self._html_val)
@@ -864,50 +839,35 @@ class PreviewDialog(QDialog):
 
             # CSS
             def _highlight_css(self, text):
-                # /* comments */
                 self._apply(text, r'/\*.*?\*/', self._css_comment)
-                # @-rules
                 self._apply(text, r'@[\w-]+', self._css_atrule)
-                # property: value  (inside { })
                 self._apply(text, r'[\w-]+(?=\s*:)', self._css_prop)
-                # numbers with units
                 self._apply(text, r'-?\d+\.?\d*(?:%|px|em|rem|vh|vw|vmin|vmax|pt|cm|mm|s|ms)?',
                             self._css_number)
-                # strings
                 self._apply(text, r'(["\'])(?:(?!\1).)*\1', self._css_val)
-                # hex colors
                 self._apply(text, r'#[0-9a-fA-F]{3,8}\b', self._css_val)
-                # selectors (lines that don't contain : or end with {)
                 if re.search(r'\{', text) or (not re.search(r':', text)):
                     self._apply(text, r'[.#]?[\w][\w-]*(?=[^:]*\{)', self._css_selector)
 
             # JS
             def _highlight_js(self, text):
-                # single-line comments //
                 self._apply(text, r'//.*', self._js_comment)
-                # multi-line comments /* */
                 self._apply(text, r'/\*.*?\*/', self._js_comment)
-                # template literals `…`
                 self._apply(text, r'`(?:[^`\\]|\\.)*`', self._js_template)
-                # strings
                 self._apply(text, r'(["\'])(?:(?!\1|\\).|\\.)*\1', self._js_string)
-                # numbers
                 self._apply(text, r'\b0[xX][\da-fA-F]+\b|\b\d+\.?\d*(?:[eE][+-]?\d+)?\b',
                             self._js_number)
-                # keywords
                 for m in re.finditer(r'\b([a-zA-Z_$][\w$]*)\b', text):
                     word = m.group(1)
                     if word in self._JS_KEYWORDS:
                         self.setFormat(m.start(), len(word), self._js_keyword)
                     elif word in self._JS_BUILTINS:
                         self.setFormat(m.start(), len(word), self._js_builtin)
-                # simple regex literals  /pattern/flags  (heuristic)
                 self._apply(text, r'(?<![<\w\d])/(?:[^/\\\n]|\\.)+/[gimsuy]*', self._js_regex)
 
         _HtmlCssJsHL(te.document(), source)
         te.setPlainText(source)
 
-        # Warning banner
         warn = QLabel(self.translate_text("preview_unavailable"))
         warn.setStyleSheet(
             "background:#2d2400; color:#ffcc00; "
@@ -919,7 +879,6 @@ class PreviewDialog(QDialog):
         self.content_layout.addWidget(warn)
         self.content_layout.addWidget(te)
 
-    # EPUB
     def preview_epub(self):
         try:
             import ebooklib
@@ -946,7 +905,6 @@ class PreviewDialog(QDialog):
         except Exception as e:
             self._show_error(f"{self.translate_text('Erreur EPUB:')} {e}")
 
-    # Audio
     def preview_audio(self):
         try:
             from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
@@ -960,30 +918,26 @@ class PreviewDialog(QDialog):
             audio_out.setVolume(0.8)
             player.setSource(QUrl.fromLocalFile(str(Path(self.file_path).resolve())))
             self._media_player = player
-            self._audio_output = audio_out  # keep alive
+            self._audio_output = audio_out
 
             container = QWidget()
             vbox = QVBoxLayout(container)
             vbox.setSpacing(12)
 
-            # File info
             info = QLabel(f"🎵  <b>{Path(self.file_path).name}</b>")
             info.setStyleSheet("font-size: 14px; padding: 8px;")
             info.setAlignment(Qt.AlignCenter)
             vbox.addWidget(info)
 
-            # Time display
             time_lbl = QLabel("0:00 / 0:00")
             time_lbl.setAlignment(Qt.AlignCenter)
             time_lbl.setStyleSheet("font-size: 12px; color: gray;")
             vbox.addWidget(time_lbl)
 
-            # Seek slider
             seek_slider = QSlider(Qt.Horizontal)
             seek_slider.setRange(0, 0)
             vbox.addWidget(seek_slider)
 
-            # Controls row
             ctrl = QWidget()
             hbox = QHBoxLayout(ctrl)
             hbox.setSpacing(12)
@@ -995,7 +949,6 @@ class PreviewDialog(QDialog):
                 btn.setFixedHeight(34)
                 hbox.addWidget(btn)
 
-            # Volume
             vol_lbl = QLabel("🔊")
             vol_slider = QSlider(Qt.Horizontal)
             vol_slider.setRange(0, 100)
@@ -1006,7 +959,6 @@ class PreviewDialog(QDialog):
             hbox.addWidget(vol_slider)
             vbox.addWidget(ctrl)
 
-            # Connections
             play_btn.clicked.connect(player.play)
             pause_btn.clicked.connect(player.pause)
             stop_btn.clicked.connect(player.stop)
@@ -1043,7 +995,6 @@ class PreviewDialog(QDialog):
         except Exception as e:
             self._show_error(f"{self.translate_text('Erreur audio:')} {e}")
 
-    # Video
     def preview_video(self):
         try:
             from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
@@ -1069,7 +1020,6 @@ class PreviewDialog(QDialog):
             vbox.setSpacing(6)
             vbox.addWidget(video_widget, 1)
 
-            # Time + seek
             time_lbl = QLabel("0:00 / 0:00")
             time_lbl.setAlignment(Qt.AlignCenter)
             time_lbl.setStyleSheet("font-size: 11px; color: gray;")
@@ -1078,7 +1028,6 @@ class PreviewDialog(QDialog):
             vbox.addWidget(seek_slider)
             vbox.addWidget(time_lbl)
 
-            # Controls
             ctrl = QWidget()
             hbox = QHBoxLayout(ctrl)
             hbox.setSpacing(10)
@@ -1100,7 +1049,6 @@ class PreviewDialog(QDialog):
             hbox.addWidget(vol_slider)
             vbox.addWidget(ctrl)
 
-            # Connections
             play_btn.clicked.connect(player.play)
             pause_btn.clicked.connect(player.pause)
             stop_btn.clicked.connect(player.stop)
@@ -1131,7 +1079,6 @@ class PreviewDialog(QDialog):
         except Exception as e:
             self._show_error(f"{self.translate_text('Erreur vidéo:')} {e}")
 
-    # Unsupported
     def preview_unsupported(self):
         ext = Path(self.file_path).suffix.upper() or "?"
         self.preview_label.setParent(self.content_area)
@@ -1147,6 +1094,7 @@ class PreviewDialog(QDialog):
             except Exception:
                 pass
         super().closeEvent(event)
+
 
 class PasswordDialog(QDialog):
     def __init__(self, parent=None, language="fr"):
@@ -1214,6 +1162,7 @@ class PasswordDialog(QDialog):
 
     def get_password(self):
         return self.password_input.text()
+
 
 class SplitDialog(QDialog):
 
@@ -1300,6 +1249,7 @@ class SplitDialog(QDialog):
     def translate_text(self, text):
         return self._tm.translate_text(text)
 
+
 class CompressionDialog(QDialog):
     def __init__(self, parent=None, language="fr"):
         super().__init__(parent)
@@ -1311,13 +1261,11 @@ class CompressionDialog(QDialog):
     def setup_ui(self):
         layout = QVBoxLayout(self)
 
-        # Selection information
         selection_info = QLabel()
         selection_info.setStyleSheet("font-weight: bold; color: #4dabf7;")
         selection_info.setWordWrap(True)
         layout.addWidget(selection_info)
 
-        # Archive format
         format_layout = QHBoxLayout()
         format_layout.addWidget(QLabel(self.translate_text("Format d'archive:")))
         self.format_combo = QComboBox()
@@ -1326,7 +1274,6 @@ class CompressionDialog(QDialog):
         format_layout.addWidget(self.format_combo)
         layout.addLayout(format_layout)
 
-        # Compression level
         level_layout = QHBoxLayout()
         level_layout.addWidget(QLabel(self.translate_text("Niveau de compression:")))
         self.compression_level = QComboBox()
@@ -1338,7 +1285,6 @@ class CompressionDialog(QDialog):
         level_layout.addWidget(self.compression_level)
         layout.addLayout(level_layout)
 
-        # Archive name
         name_layout = QHBoxLayout()
         name_layout.addWidget(QLabel(self.translate_text("Nom de l'archive:")))
         self.filename_input = QLineEdit()
@@ -1346,7 +1292,6 @@ class CompressionDialog(QDialog):
         name_layout.addWidget(self.filename_input)
         layout.addLayout(name_layout)
 
-        # Options
         options_group = QGroupBox(self.translate_text("Options"))
         options_layout = QVBoxLayout(options_group)
 
@@ -1415,7 +1360,6 @@ class CompressionDialog(QDialog):
         self.split_note_label.setVisible(False)
         layout.addWidget(self.split_note_label)
 
-        # Buttons
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         ok_button = buttons.button(QDialogButtonBox.Ok)
         if ok_button:
@@ -1457,7 +1401,6 @@ class CompressionDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
-        # Connect signals
         self.split_checkbox.stateChanged.connect(self.on_split_changed)
         self.format_combo.currentIndexChanged.connect(self.on_format_changed)
         self.split_preset_combo.currentIndexChanged.connect(self.on_split_preset_changed)
@@ -1712,6 +1655,7 @@ class CompressionDialog(QDialog):
     def translate_text(self, text):
         return self._tm.translate_text(text)
 
+
 class BatchConvertDialog(QDialog):
     def __init__(self, parent=None, language="fr"):
         super().__init__(parent)
@@ -1784,6 +1728,7 @@ class BatchConvertDialog(QDialog):
     def translate_text(self, text):
         return self._tm.translate_text(text)
 
+
 class BatchRenameDialog(QDialog):
     """
     Advanced batch rename dialog.
@@ -1799,17 +1744,14 @@ class BatchRenameDialog(QDialog):
         self._setup_ui()
         self._refresh_preview()
 
-    # i18n
     def tr_(self, text):
         return self._tm.translate_text(text)
 
-    # UI
     def _setup_ui(self):
         root = QVBoxLayout(self)
         root.setSpacing(10)
         root.setContentsMargins(14, 14, 14, 14)
 
-        # 1. Template
         tpl_box = QGroupBox(self.tr_("br_template_title"))
         tpl_lay = QVBoxLayout(tpl_box)
 
@@ -1837,8 +1779,6 @@ class BatchRenameDialog(QDialog):
             tpl_row.addWidget(btn)
         tpl_lay.addLayout(tpl_row)
         root.addWidget(tpl_box)
-
-        # 2. Numbering
         num_box = QGroupBox(self.tr_("br_numbering_title"))
         num_grid = QGridLayout(num_box)
         num_grid.setColumnStretch(1, 1)
@@ -1880,7 +1820,6 @@ class BatchRenameDialog(QDialog):
         num_grid.addWidget(self.order_combo, 1, 3)
         root.addWidget(num_box)
 
-        # 3. Casse & Nettoyage
         case_box = QGroupBox(self.tr_("br_case_title"))
         case_lay = QHBoxLayout(case_box)
 
@@ -1911,7 +1850,6 @@ class BatchRenameDialog(QDialog):
         case_lay.addStretch()
         root.addWidget(case_box)
 
-        # 4. Chercher / Remplacer
         fr_box = QGroupBox(self.tr_("br_findreplace_title"))
         fr_lay = QHBoxLayout(fr_box)
         fr_lay.addWidget(QLabel(self.tr_("br_find")))
@@ -1926,7 +1864,6 @@ class BatchRenameDialog(QDialog):
         fr_lay.addWidget(self.replace_input)
         root.addWidget(fr_box)
 
-        # 5. Preview
         prev_box = QGroupBox(self.tr_("br_preview_title"))
         prev_lay = QVBoxLayout(prev_box)
 
@@ -1946,7 +1883,6 @@ class BatchRenameDialog(QDialog):
         root.addWidget(prev_box)
         root.setStretchFactor(prev_box, 1)
 
-        # Boutons
         btn_row = QHBoxLayout()
         self.rename_btn = QPushButton("✅ " + self.tr_("br_apply"))
         self.rename_btn.setMinimumHeight(36)
@@ -1971,7 +1907,6 @@ class BatchRenameDialog(QDialog):
         btn_row.addWidget(self.rename_btn)
         root.addLayout(btn_row)
 
-    # Helpers
     def _insert_var(self, var):
         pos = self.tpl_input.cursorPosition()
         txt = self.tpl_input.text()
@@ -2039,7 +1974,6 @@ class BatchRenameDialog(QDialog):
         new_stem = self._apply_transforms(new_stem)
         return new_stem + ext
 
-    # Live preview
     def _refresh_preview(self):
         from PySide6.QtGui import QColor
         files = self._sorted_files()
@@ -2054,7 +1988,6 @@ class BatchRenameDialog(QDialog):
             self.preview_table.setItem(i, 0, old_item)
             self.preview_table.setItem(i, 1, new_item)
 
-    # Public API
     def get_rename_plan(self):
         """Return list of (old_path, new_name) in chosen order."""
         files = self._sorted_files()
@@ -2366,7 +2299,6 @@ class SettingsDialog(QDialog):
     def translate_text(self, text):
         return self._tm.translate_text(text)
 
-    # Language tab
     def _lang_is_dark(self) -> bool:
         """Return True if the parent app is currently in dark mode."""
         p = self.parent()
@@ -2376,8 +2308,6 @@ class SettingsDialog(QDialog):
         """Build the Language settings tab with installed-language list + import."""
         dark = self._lang_is_dark()
 
-        # Palette
-        # Backgrounds
         tab_bg        = "#0d1117" if dark else "#f8f9fa"
         group_bg      = "#161b22" if dark else "#ffffff"
         scroll_bg     = "#161b22" if dark else "#ffffff"
@@ -2395,7 +2325,6 @@ class SettingsDialog(QDialog):
         layout.setContentsMargins(8, 10, 8, 10)
         layout.setSpacing(12)
 
-        # Active language indicator
         active_row = QHBoxLayout()
         active_lbl_title = QLabel(self.translate_text("Langue active:"))
         active_lbl_title.setStyleSheet(f"color: {text_primary}; font-size: 12px;")
@@ -2408,7 +2337,6 @@ class SettingsDialog(QDialog):
         active_row.addStretch()
         layout.addLayout(active_row)
 
-        # Language list
         list_group = QGroupBox(self.translate_text("Langues installées"))
         list_group.setStyleSheet(f"""
             QGroupBox {{
@@ -2460,7 +2388,6 @@ class SettingsDialog(QDialog):
         list_layout.addWidget(self._lang_list)
         layout.addWidget(list_group)
 
-        # Import button
         import_btn = QPushButton("📥 " + self.translate_text("Importer un fichier .lang"))
         import_btn.setMinimumHeight(36)
         import_btn.setStyleSheet("""
@@ -2475,7 +2402,6 @@ class SettingsDialog(QDialog):
         import_btn.clicked.connect(self._import_lang_file)
         layout.addWidget(import_btn)
 
-        # Hint
         hint = QLabel("ℹ️ " + self.translate_text("lang_restart_hint"))
         hint.setWordWrap(True)
         hint.setStyleSheet(
@@ -2520,28 +2446,27 @@ class SettingsDialog(QDialog):
         is_active  = lang["code"] == current_code
         is_builtin = lang.get("builtin", False)
 
-        # Card palette
         if dark:
             if is_active:
-                card_bg     = "#0f2a1e"   # deep green tint
-                border_col  = "#3fb950"   # bright green
-                name_col    = "#e6edf3"   # white-ish
-                meta_col    = "#8b949e"   # muted grey
+                card_bg     = "#0f2a1e"
+                border_col  = "#3fb950"
+                name_col    = "#e6edf3"
+                meta_col    = "#8b949e"
             else:
-                card_bg     = "#1c2333"   # raised surface
-                border_col  = "#30363d"   # subtle border
-                name_col    = "#c9d1d9"   # light grey
-                meta_col    = "#8b949e"   # muted grey
+                card_bg     = "#1c2333"
+                border_col  = "#30363d"
+                name_col    = "#c9d1d9"
+                meta_col    = "#8b949e"
         else:
             if is_active:
-                card_bg     = "#f0fdf4"   # mint tint
-                border_col  = "#10B981"   # green
-                name_col    = "#064e3b"   # dark green text
-                meta_col    = "#6b7280"   # grey
+                card_bg     = "#f0fdf4"
+                border_col  = "#10B981"
+                name_col    = "#064e3b"
+                meta_col    = "#6b7280"
             else:
                 card_bg     = "#ffffff"
                 border_col  = "#dee2e6"
-                name_col    = "#1c2526"   # near-black
+                name_col    = "#1c2526"
                 meta_col    = "#6b7280"
 
         card = QFrame()
@@ -2559,7 +2484,6 @@ class SettingsDialog(QDialog):
         row.setContentsMargins(10, 8, 10, 8)
         row.setSpacing(10)
 
-        # Badge
         if is_active:
             badge_text  = self.translate_text("lang_active_badge")
             badge_bg    = "#3fb950" if dark else "#10B981"
@@ -2585,7 +2509,6 @@ class SettingsDialog(QDialog):
         """)
         row.addWidget(badge)
 
-        # Name + meta
         info_col = QVBoxLayout()
         info_col.setSpacing(2)
 
@@ -2615,7 +2538,6 @@ class SettingsDialog(QDialog):
         info_col.addWidget(meta_lbl)
         row.addLayout(info_col, 1)
 
-        # Apply button
         if not is_active:
             if dark:
                 apply_ss = """
@@ -2644,7 +2566,6 @@ class SettingsDialog(QDialog):
             apply_btn.clicked.connect(lambda _, c=code: self._apply_language(c))
             row.addWidget(apply_btn)
 
-        # Remove button (external only)
         if not is_builtin:
             if dark:
                 remove_ss = """
@@ -2886,7 +2807,6 @@ class ConversionOptionsDialog(QDialog):
     """
     conversion_chosen = Signal(str)
 
-    # (label_key, method_name, icon_file, accent_dark, accent_light)
     _CARDS = [
         ("PDF → Word/Docx",       "launch_pdf_to_word_conversion",  "pdf_word.png",        "#4dabf7", "#1971c2"),
         ("Word/Docx → PDF",       "launch_word_to_pdf_conversion",  "word_pdf.png",        "#69db7c", "#2f9e44"),
@@ -2906,7 +2826,6 @@ class ConversionOptionsDialog(QDialog):
         flags = (Qt.Window | Qt.WindowTitleHint | Qt.WindowSystemMenuHint | Qt.WindowCloseButtonHint)
         self.setWindowFlags(flags | Qt.CustomizeWindowHint)
 
-        # Global color palette for the dialog
         if self._dark:
             dlg_bg     = "#0d1117"
             dlg_border = "#30363d"
@@ -2938,7 +2857,6 @@ class ConversionOptionsDialog(QDialog):
         root.setContentsMargins(24, 20, 24, 20)
         root.setSpacing(0)
 
-        # Header
         title = QLabel(parent.translate_text("Lancer la Conversion"))
         title.setStyleSheet(
             f"font-size: 17px; font-weight: 700; color: {title_col}; background: transparent;"
@@ -2952,7 +2870,6 @@ class ConversionOptionsDialog(QDialog):
         root.addWidget(sub)
         root.addSpacing(10)
 
-        # Cards grid
         grid = QGridLayout()
         grid.setHorizontalSpacing(10)
         grid.setVerticalSpacing(10)
@@ -2977,7 +2894,6 @@ class ConversionOptionsDialog(QDialog):
         root.addLayout(grid)
         root.addSpacing(16)
 
-        # Cancel
         cancel = QPushButton(parent.translate_text("Annuler"))
         cancel.setFixedHeight(36)
         cancel.setStyleSheet(f"""
@@ -2995,7 +2911,6 @@ class ConversionOptionsDialog(QDialog):
         cancel.clicked.connect(self.reject)
         root.addWidget(cancel)
 
-    # Card factory
     def _make_card(self, label: str, icon_file: str, method_name: str,
                    accent: str, full_width: bool) -> QPushButton:
         """Build one conversion card button."""
@@ -3040,7 +2955,6 @@ class ConversionOptionsDialog(QDialog):
             }}
         """)
 
-        # Icon
         icon_path = self.parent().get_resource_path(os.path.join("icons", icon_file))
         if os.path.exists(icon_path):
             btn.setIcon(QIcon(icon_path))
@@ -3048,7 +2962,6 @@ class ConversionOptionsDialog(QDialog):
 
         btn.setText(("  " if os.path.exists(icon_path) else "") + label)
 
-        # Connection
         if method_name == "launch_more_conversions":
             btn.clicked.connect(self._on_more_conversions)
         else:
@@ -3067,7 +2980,6 @@ class ConversionOptionsDialog(QDialog):
         dialog.activateWindow()
         self.accept()
 
-    # Compat alias
     def on_more_conversions_clicked(self):
         self._on_more_conversions()
 

@@ -29,11 +29,9 @@ from PySide6.QtWidgets import (
     QGridLayout, QGroupBox, QProgressBar, QTextEdit,
     QFileDialog, QMessageBox )
 
-# local imports
 from converter import AdvancedDatabaseManager, AdvancedConverterEngine
 from translations import TranslationManager
 
-#  Background worker
 
 class _ConversionWorker(QObject):
     """
@@ -67,7 +65,7 @@ class _ConversionWorker(QObject):
         self.dst_dir             = dst_dir
         self._cancelled          = False
         self.achievement_system  = achievement_system
-        self._tm                 = tm  # TranslationManager (may be None)
+        self._tm                 = tm
 
     def cancel(self) -> None:
         self._cancelled = True
@@ -85,7 +83,6 @@ class _ConversionWorker(QObject):
         total = len(self.sources)
         _batch_start = time.time()
 
-        # Reset the batch counter for Flash Gordon
         if self.achievement_system is not None:
             try:
                 self.achievement_system.update_stat("recent_batch_files", 0)
@@ -103,7 +100,6 @@ class _ConversionWorker(QObject):
 
             result = self.engine.convert(self.conversion_type, src, self.dst_dir)
 
-            # record to DB regardless of success/failure
             from converter.converters import CATEGORY_MAP
             category = CATEGORY_MAP.get(self.conversion_type, "document")
 
@@ -126,7 +122,6 @@ class _ConversionWorker(QObject):
                 self.log.emit(self._t("adv_log_success",
                                       target=Path(result.target).name,
                                       elapsed=result.elapsed))
-                # Track advanced achievement progress
                 if self.achievement_system is not None:
                     try:
                         self.achievement_system.record_advanced_conversion(
@@ -141,7 +136,6 @@ class _ConversionWorker(QObject):
                     self.log.emit(self._t("adv_log_no_audio", error=err_msg))
                 else:
                     self.log.emit(self._t("adv_log_error", error=err_msg))
-                # Break the consecutive streak
                 if self.achievement_system is not None:
                     try:
                         self.achievement_system.record_advanced_conversion(
@@ -163,7 +157,6 @@ class _ConversionWorker(QObject):
 
         self.finished.emit(ok, fail)
 
-#  Main dialog
 
 class AdvancedConversionsDialog(QDialog):
     """
@@ -174,7 +167,7 @@ class AdvancedConversionsDialog(QDialog):
     Results are stored in the separate AdvancedDatabaseManager.
     """
 
-    conversion_requested = Signal(str)   # kept for backward compat
+    conversion_requested = Signal(str)
 
     def __init__(
         self,
@@ -187,14 +180,11 @@ class AdvancedConversionsDialog(QDialog):
         self.language      = language
         self._tm = TranslationManager(); self._tm.set_language(language)
 
-        # DB + engine
         self.adv_db = advanced_db or AdvancedDatabaseManager()
         self.engine = AdvancedConverterEngine()
 
-        # session output folder memory
         self._last_dst_dir: str | None = None
 
-        # worker state
         self._thread: QThread | None = None
         self._worker: _ConversionWorker | None = None
 
@@ -205,7 +195,6 @@ class AdvancedConversionsDialog(QDialog):
         self._setup_ui()
         self._apply_theme_style()
 
-    # file resolution
     def _get_source_files(self, accepted_exts: list[str]) -> list[str]:
         """
         Returns the files to convert.
@@ -220,25 +209,21 @@ class AdvancedConversionsDialog(QDialog):
         files: list[str] = []
 
         if self.parent_window is not None:
-            # selected items?
             widget = getattr(self.parent_window, "files_list_widget", None)
             if widget is not None:
                 selected = []
                 for i in range(widget.count()):
                     item = widget.item(i)
                     if item.isSelected():
-                        # Full path stored in UserRole; fall back to text
                         from PySide6.QtCore import Qt as _Qt
                         path = item.data(_Qt.UserRole) or item.text()
                         selected.append(path)
                 if selected:
                     files = selected
 
-            # fall back to full list
             if not files:
                 files = list(getattr(self.parent_window, "files_list", []))
 
-        # filter by accepted extensions (case-insensitive)
         if accepted_exts:
             exts = {e.lower() for e in accepted_exts}
             files = [f for f in files if Path(f).suffix.lower() in exts]
@@ -247,14 +232,12 @@ class AdvancedConversionsDialog(QDialog):
 
     def _choose_dst_dir(self) -> str | None:
         """Return the output folder — uses the app default if configured, else asks the user."""
-        # Priority: use the default output folder configured in app settings
         if self.parent_window is not None:
             cfg = getattr(self.parent_window, "config", {})
             candidate = cfg.get("default_output_folder", "")
             if candidate and os.path.exists(candidate):
                 return candidate
 
-        # Otherwise, ask the user to pick a folder
         folder = QFileDialog.getExistingDirectory(
             self,
             self.tr_("Choisir le dossier de sortie"),
@@ -264,7 +247,6 @@ class AdvancedConversionsDialog(QDialog):
             self._last_dst_dir = folder
         return folder or None
 
-    # conversion trigger
     def _run_conversion(
         self,
         conversion_type: str,
@@ -272,7 +254,6 @@ class AdvancedConversionsDialog(QDialog):
     ) -> None:
         """Resolve files, pick output folder, then start the worker thread."""
 
-        # Block if a conversion is already running
         try:
             running = self._thread is not None and self._thread.isRunning()
         except RuntimeError:
@@ -286,7 +267,7 @@ class AdvancedConversionsDialog(QDialog):
             )
             return
 
-        self.conversion_requested.emit(conversion_type)   # backward compat
+        self.conversion_requested.emit(conversion_type)
 
         sources = self._get_source_files(accepted_exts)
         if not sources:
@@ -301,16 +282,13 @@ class AdvancedConversionsDialog(QDialog):
 
         dst_dir = self._choose_dst_dir()
         if not dst_dir:
-            return   # user cancelled the folder picker
-
-        # Show progress area
+            return
         self._log_area.clear()
         self._progress_bar.setValue(0)
         self._progress_bar.setMaximum(len(sources))
         self._progress_widget.setVisible(True)
         self._cancel_btn.setEnabled(True)
 
-        # Build worker + thread
         _ach_sys = getattr(self.parent_window, 'achievement_system', None)
         worker = _ConversionWorker(
             self.engine, self.adv_db, conversion_type, sources, dst_dir,
@@ -340,7 +318,6 @@ class AdvancedConversionsDialog(QDialog):
             self._worker.cancel()
         self._cancel_btn.setEnabled(False)
 
-    # worker slots
     def _on_log(self, msg: str) -> None:
         self._log_area.append(msg)
 
@@ -357,13 +334,11 @@ class AdvancedConversionsDialog(QDialog):
             self._log_area.append(self.tr_("adv_log_partial").format(ok=ok, fail=fail))
         self._progress_bar.setValue(self._progress_bar.maximum())
 
-    # UI construction
     def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(12)
 
-        # Title
         title = QLabel(self.tr_("🔄 Conversions Avancées"))
         title.setStyleSheet("font-size: 20px; font-weight: bold; margin-bottom: 4px;")
         layout.addWidget(title)
@@ -372,7 +347,6 @@ class AdvancedConversionsDialog(QDialog):
         subtitle.setStyleSheet("font-size: 12px; color: #888; margin-bottom: 10px;")
         layout.addWidget(subtitle)
 
-        # Tabs
         self.tab_widget = QTabWidget()
         self.tab_widget.currentChanged.connect(self._on_tab_changed)
         self.tab_widget.setStyleSheet(self._tab_style(0))
@@ -383,7 +357,6 @@ class AdvancedConversionsDialog(QDialog):
 
         layout.addWidget(self.tab_widget)
 
-        # Progress area (hidden until conversion starts)
         self._progress_widget = QWidget()
         prog_layout = QVBoxLayout(self._progress_widget)
         prog_layout.setContentsMargins(0, 0, 0, 0)
@@ -405,7 +378,6 @@ class AdvancedConversionsDialog(QDialog):
         self._progress_widget.setVisible(False)
         layout.addWidget(self._progress_widget)
 
-        # Bottom buttons
         btn_row = QHBoxLayout()
         self._cancel_btn = QPushButton(self.tr_("⛔ Annuler la conversion"))
         self._cancel_btn.setEnabled(False)
@@ -423,7 +395,6 @@ class AdvancedConversionsDialog(QDialog):
 
         layout.addLayout(btn_row)
 
-    # Tab builders
     def _build_documents_tab(self) -> QWidget:
         groups = [
             (self.tr_("TXT / RTF"), [
@@ -648,15 +619,13 @@ class AdvancedConversionsDialog(QDialog):
                 QPushButton:pressed { background: #b91c1c; }
                 QPushButton:disabled { background: #6b7280; color: #9ca3af; }
             """
-        return ""   # fallback
+        return ""
 
     def _on_tab_changed(self, index: int) -> None:
         self.tab_widget.setStyleSheet(self._tab_style(index))
 
-    # i18n helper
     def tr_(self, text: str) -> str:
         return self._tm.translate_text(text)
 
-    # kept for backward compat with code that calls translate_text()
     def translate_text(self, text: str) -> str:
         return self._tm.translate_text(text)

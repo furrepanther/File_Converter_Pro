@@ -64,7 +64,6 @@ class AnimatedCheckBox(QCheckBox):
         
         self.toggled.connect(self._on_toggled)
     
-    # Qt Properties for animations
     def _get_check(self):
         return self._check_progress
     
@@ -92,12 +91,10 @@ class AnimatedCheckBox(QCheckBox):
     
     rippleProgress = Property(float, _get_ripple, _set_ripple)
     
-    # Theme
     def setDarkTheme(self, dark: bool):
         self._is_dark = dark
         self.update()
     
-    # State
     def _on_toggled(self, checked):
         self._anim.stop()
         self._anim.setStartValue(self._check_progress)
@@ -108,7 +105,6 @@ class AnimatedCheckBox(QCheckBox):
         self._ripple_active = False
         self.update()
     
-    # Events
     def mousePressEvent(self, event):
         if not self.isEnabled():
             event.ignore()
@@ -144,7 +140,6 @@ class AnimatedCheckBox(QCheckBox):
         except RuntimeError:
             pass
     
-    # Painting
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
@@ -181,7 +176,6 @@ class AnimatedCheckBox(QCheckBox):
             unchecked_bg = QColor(250, 250, 252)
             unchecked_bg2 = QColor(240, 240, 245)
         
-        # Gradient background: neutral → purple based on progress
         grad = QLinearGradient(bx, by, bx + bs, by + bs)
         if p > 0:
             r1 = int(unchecked_bg.red() + (99 - unchecked_bg.red()) * min(p * 2, 1))
@@ -197,7 +191,6 @@ class AnimatedCheckBox(QCheckBox):
         
         painter.save()
         
-        # Purple glow when checked
         if p > 0:
             for i in range(3, 0, -1):
                 painter.setPen(QPen(QColor(99, 102, 241, int(50 * p)), i * 2.0))
@@ -206,13 +199,11 @@ class AnimatedCheckBox(QCheckBox):
                     QRectF(bx - i, by - i, bs + i * 2, bs + i * 2), 7 + i, 7 + i
                 )
         
-        # Subtle glow on hover (unchecked only)
         if self._hover_glow > 0 and p == 0:
             painter.setPen(QPen(QColor(99, 102, 241, int(22 * self._hover_glow)), 3))
             painter.setBrush(Qt.NoBrush)
             painter.drawRoundedRect(QRectF(bx - 2, by - 2, bs + 4, bs + 4), 8, 8)
         
-        # Body section
         painter.setBrush(grad)
         if p < 1.0:
             border_alpha = int(255 * (1 - p * 0.9))
@@ -281,6 +272,7 @@ class AnimatedCheckBox(QCheckBox):
         w = 2 + 20 + 10 + fm.horizontalAdvance(self.text()) + 4
         return QSize(max(w, 120), 32)
 
+
 class FileSizeDelegate(QStyledItemDelegate):
     """
     Lets Qt draw everything normally, then paints the size string
@@ -291,7 +283,6 @@ class FileSizeDelegate(QStyledItemDelegate):
     RIGHT_MARGIN = 10
 
     def paint(self, painter, option, index):
-        # Let Qt draw the full default item
         super().paint(painter, option, index)
 
         size_str = index.data(Qt.UserRole + 4)
@@ -314,15 +305,14 @@ class FileSizeDelegate(QStyledItemDelegate):
         )
 
         if option.state & QStyle.State_Selected:
-            # Detect dark/light from palette background luminance
             bg = option.palette.window().color()
             is_dark = (bg.red() * 0.299 + bg.green() * 0.587 + bg.blue() * 0.114) < 128
             if is_dark:
-                color = QColor(80, 220, 140, 230)   # vert — dark mode
+                color = QColor(80, 220, 140, 230)
             else:
-                color = QColor(50, 130, 240, 230)   # bleu — light mode
+                color = QColor(50, 130, 240, 230)
         else:
-            color = QColor(110, 125, 150, 210)      # gris muted — non sélectionné
+            color = QColor(110, 125, 150, 210)
 
         painter.setPen(color)
         painter.drawText(size_rect, Qt.AlignVCenter | Qt.AlignRight, size_str)
@@ -349,16 +339,15 @@ class DraggableListWidget(QListWidget):
     # Glitch character pool
     _GLITCH_CHARS = "█▓▒░╔╗╚╝║═╠╣╦╩╬▄▀■□▪▫◆◇○●"
 
-    # RGB glitch colour palettes — cycled during corrupt frames
     _GLITCH_RGB_PALETTES = [
-        (255,  20, 147),   # deep pink
-        ( 57, 255,  20),   # neon green
-        (255,  69,   0),   # orange-red
-        (  0, 255, 255),   # cyan
-        (255, 255,   0),   # yellow
-        (148,   0, 211),   # violet
-        (255, 165,   0),   # orange
-        (  0, 191, 255),   # deep sky blue
+        (255,  20, 147),
+        ( 57, 255,  20),
+        (255,  69,   0),
+        (  0, 255, 255),
+        (255, 255,   0),
+        (148,   0, 211),
+        (255, 165,   0),
+        (  0, 191, 255),
     ]
 
     def __init__(self, parent=None, translation_manager=None):
@@ -373,10 +362,8 @@ class DraggableListWidget(QListWidget):
         self.viewport().setMouseTracking(True)
         self.setMouseTracking(True)
 
-        # TranslationManager — injected at construction or retrieved from parent
         self._tm = translation_manager
 
-        # Glitch animation state
         import random
         self._rng = random.Random()
         self._glitch_frame        = 0
@@ -388,7 +375,6 @@ class DraggableListWidget(QListWidget):
         self._glitch_palette_idx  = 0
         self._glitch_rgb_override = {}
 
-        # Glitch duration control: active for 10 s, then freeze until hover
         self._glitch_enabled      = True
         self._glitch_stop_timer   = QTimer(self)
         self._glitch_stop_timer.setSingleShot(True)
@@ -401,7 +387,6 @@ class DraggableListWidget(QListWidget):
         self._glitch_timer.timeout.connect(self._tick_glitch)
         self._glitch_timer.start()
 
-    # TranslationManager helpers
     def set_translation_manager(self, tm):
         """Inject or replace the TranslationManager (called from app)."""
         self._tm = tm
@@ -417,14 +402,12 @@ class DraggableListWidget(QListWidget):
         """Translate *key* through the injected TM, or return key as fallback."""
         if self._tm is not None:
             return self._tm.translate_text(key)
-        # No TM yet: lazy-try to grab it from the parent app
         app = self._find_app()
         if app and hasattr(app, 'translation_manager'):
             self._tm = app.translation_manager
             return self._tm.translate_text(key)
         return key
 
-    # Build the two ASCII art blocks from translation keys
     @property
     def _ASCII_ART(self):
         """Return the full art list: block1 rows + [''] gap + block2 rows.
@@ -438,7 +421,6 @@ class DraggableListWidget(QListWidget):
         block2 = raw2.split("\n") if raw2 else []
         return block1 + [""] + block2
 
-    # Glitch duration control
     def _stop_glitch_effects(self):
         """Freeze glitch effects: no new bursts until hover."""
         self._glitch_enabled      = False
@@ -454,7 +436,6 @@ class DraggableListWidget(QListWidget):
             self._glitch_enabled = True
             self._glitch_stop_timer.start(10_000)
 
-    # Glitch engine
     def _tick_glitch(self):
         """Called every 80 ms. Drives all glitch state."""
         import random
@@ -468,15 +449,11 @@ class DraggableListWidget(QListWidget):
         art = self._ASCII_ART
         total = len(art)
 
-        # Advance scanline
         self._scanline_y = (self._scanline_y + 2) % max(total * 14, 1)
 
-        # Decide whether to start a new glitch burst (~every 2-3 s)
-        # Only if glitch effects are currently enabled (first 10s or after hover)
         if not self._glitch_active and self._glitch_enabled and self._rng.random() < 0.06:
             self._glitch_active = True
             self._glitch_ticks  = self._rng.randint(3, 8)
-            # Advance RGB palette on each new burst
             self._glitch_palette_idx = (self._glitch_palette_idx + 1) % len(self._GLITCH_RGB_PALETTES)
 
         if self._glitch_active:
@@ -491,9 +468,7 @@ class DraggableListWidget(QListWidget):
                 self._glitch_lines       = {}
                 self._glitch_rgb_override = {}
 
-                # Primary RGB colour for this burst
                 base_rgb = self._GLITCH_RGB_PALETTES[self._glitch_palette_idx]
-                # Secondary colour: pick a different palette entry for variety
                 sec_idx  = (self._glitch_palette_idx + self._rng.randint(1, 3)) % len(self._GLITCH_RGB_PALETTES)
                 sec_rgb  = self._GLITCH_RGB_PALETTES[sec_idx]
 
@@ -508,7 +483,6 @@ class DraggableListWidget(QListWidget):
                         pos = self._rng.randint(0, len(corrupted) - 1)
                         corrupted[pos] = self._rng.choice(self._GLITCH_CHARS)
                     self._glitch_lines[li] = "".join(corrupted)
-                    # Alternate colours between corrupted lines
                     self._glitch_rgb_override[li] = base_rgb if k % 2 == 0 else sec_rgb
 
                 dx = self._rng.uniform(-5, 5)
@@ -520,7 +494,6 @@ class DraggableListWidget(QListWidget):
 
         self.viewport().update()
 
-    # Empty-state painting
     def paintEvent(self, event):
         super().paintEvent(event)
         if self.count() > 0:
@@ -528,15 +501,13 @@ class DraggableListWidget(QListWidget):
 
         import math
         painter = QPainter(self.viewport())
-        painter.setRenderHint(QPainter.Antialiasing, False)  # crisp pixel art
+        painter.setRenderHint(QPainter.Antialiasing, False)
 
         w = self.viewport().width()
         h = self.viewport().height()
 
-        # Snapshot current art (property, TM-aware)
         art = self._ASCII_ART
 
-        # Background
         app = self._find_app()
         dark = getattr(app, 'dark_mode', True) if app else True
         if dark:
@@ -545,7 +516,6 @@ class DraggableListWidget(QListWidget):
             bg = QColor(245, 245, 252)
         painter.fillRect(0, 0, w, h, bg)
 
-        # Choose font size to fit the widest ASCII line
         longest = max(len(l) for l in art) if art else 1
         font = painter.font()
         font.setFamily("Courier New")
@@ -559,7 +529,6 @@ class DraggableListWidget(QListWidget):
         painter.setFont(font)
         fm = painter.fontMetrics()
 
-        # Locate the gap row (empty string) that separates the two blocks
         try:
             gap_idx = art.index("")
         except ValueError:
@@ -572,14 +541,12 @@ class DraggableListWidget(QListWidget):
         total_h = n1 * line_h + gap_h + n2 * line_h
         start_y = max(10, (h - total_h) // 2)
 
-        # Scanline sweep
         scan_y = start_y + (self._scanline_y % max(total_h, 1))
         painter.save()
         painter.setOpacity(0.06)
         painter.fillRect(0, scan_y, w, 3, QColor(120, 200, 255))
         painter.restore()
 
-        # Chromatic-aberration ghost (red channel, shifted right)
         if self._glitch_active:
             painter.save()
             painter.setOpacity(0.22)
@@ -588,7 +555,6 @@ class DraggableListWidget(QListWidget):
                     continue
                 txt = self._glitch_lines.get(i, line)
                 tw  = fm.horizontalAdvance(txt)
-                # Compute y same way as main pass (see below)
                 if i < n1:
                     y = start_y + i * line_h + fm.ascent()
                 else:
@@ -596,7 +562,6 @@ class DraggableListWidget(QListWidget):
                 x = (w - tw) // 2 + 3
                 painter.setPen(QColor(255, 50, 50))
                 painter.drawText(int(x), int(y), txt)
-            # Blue channel ghost (shifted left)
             for i, line in enumerate(art):
                 if not line:
                     continue
@@ -611,7 +576,6 @@ class DraggableListWidget(QListWidget):
                 painter.drawText(int(x), int(y), txt)
             painter.restore()
 
-        # Main text
         shake_x = int(self._glitch_offset.x())
         t = self._glitch_frame * 0.05   # slow pulse
 
@@ -623,10 +587,8 @@ class DraggableListWidget(QListWidget):
             tw  = fm.horizontalAdvance(txt)
             x   = (w - tw) // 2 + shake_x
 
-            # Vertical position: two separate blocks with gap_h between them
             if i < n1:
                 y = start_y + i * line_h + fm.ascent()
-                # Block 1: indigo → violet pulse
                 r = int(140 + 40 * math.sin(t + i * 0.3))
                 g = int(80  + 20 * math.sin(t + i * 0.2 + 1))
                 b = 255
@@ -636,13 +598,11 @@ class DraggableListWidget(QListWidget):
                 if row_in_block2 < 0:
                     continue
                 y = start_y + n1 * line_h + gap_h + row_in_block2 * line_h + fm.ascent()
-                # Block 2: cyan → teal pulse
                 r = 0
                 g = int(200 + 40 * math.sin(t + i * 0.4))
                 b = int(220 + 35 * math.sin(t + i * 0.25 + 2))
                 color = QColor(r, min(g, 255), min(b, 255))
 
-            # RGB override for glitched lines
             if i in self._glitch_rgb_override:
                 rgb = self._glitch_rgb_override[i]
                 flicker = 0.75 + 0.25 * math.sin(t * 7 + i)
@@ -655,7 +615,6 @@ class DraggableListWidget(QListWidget):
             painter.setPen(color)
             painter.drawText(int(x), int(y), txt)
 
-        # Glitch horizontal slice (tape-tear effect)
         if self._glitch_active and self._rng.random() < 0.4:
             sl_y  = self._rng.randint(start_y, start_y + total_h)
             sl_h  = self._rng.randint(2, 5)
@@ -729,7 +688,6 @@ class DraggableListWidget(QListWidget):
                     event.acceptProposedAction()
                     return True
                 else:
-                    # Internal reorder — let Qt handle it, then sync
                     result = super().eventFilter(source, event)
                     app = self._find_app()
                     if app and hasattr(app, 'update_file_order'):
@@ -737,7 +695,6 @@ class DraggableListWidget(QListWidget):
                     return result
         return super().eventFilter(source, event)
 
-    # Keep these as fallback in case some events bypass the viewport filter
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
@@ -751,7 +708,6 @@ class DraggableListWidget(QListWidget):
 
     def dropEvent(self, event: QDropEvent):
         if event.mimeData().hasUrls():
-            # External drop: files from Windows Explorer
             self._highlight_off()
             all_paths = [
                 url.toLocalFile()
@@ -768,7 +724,6 @@ class DraggableListWidget(QListWidget):
                     app.add_files_to_list(other_files)
             event.acceptProposedAction()
         else:
-            # Internal drop: reordering items within the list
             super().dropEvent(event)
             app = self._find_app()
             if app and hasattr(app, 'update_file_order'):

@@ -43,7 +43,6 @@ def _make_tm(language: str) -> TranslationManager:
     tm.set_language(language)
     return tm
 
-#  PERLIN NOISE  —  True 3D + Fractional Brownian Motion
 
 class PerlinNoise:
     """
@@ -57,7 +56,6 @@ class PerlinNoise:
     • Isolated RNG (random.Random) — won't pollute global random state
     """
 
-    # 12 gradient vectors — midpoints of a unit cube's edges
     _GRAD3: List[Tuple[int, int, int]] = [
         (1, 1, 0), (-1, 1, 0), (1, -1, 0), (-1, -1, 0),
         (1, 0, 1), (-1, 0, 1), (1, 0, -1), (-1, 0, -1),
@@ -69,7 +67,7 @@ class PerlinNoise:
         rng = random.Random(self.seed)
         perm = list(range(256))
         rng.shuffle(perm)
-        self.p = perm * 2  # doubled, avoids modulo wrapping
+        self.p = perm * 2
 
     @staticmethod
     def _fade(t: float) -> float:
@@ -84,7 +82,6 @@ class PerlinNoise:
         gx, gy, gz = self._GRAD3[h % 12]
         return gx * x + gy * y + gz * z
 
-    # Public API
     def noise(self, x: float, y: float) -> float:
         """2D Perlin noise (legacy-compatible shim). Returns ≈ [-1, 1]."""
         return self.noise3D(x, y, 0.0)
@@ -147,7 +144,6 @@ class PerlinNoise:
 
         return value / max_value
 
-#  PARTICLE SYSTEM, Event-themed floating particles
 
 class Particle:
     """Single floating particle for celebration effects."""
@@ -172,7 +168,6 @@ class Particle:
     @property
     def alpha(self) -> int:
         progress = self.life / self.max_life
-        # Fade in quickly, hold, fade out slowly
         if progress > 0.85:
             return int(255 * (1.0 - progress) / 0.15)
         return int(255 * min(progress / 0.1, 1.0))
@@ -246,7 +241,6 @@ class ParticleSystem:
             painter.restore()
         painter.restore()
 
-#  COLOR THEMES  —  Per-event palettes
 
 class EventTheme:
     """Defines color personality for a specific event type."""
@@ -256,31 +250,29 @@ class EventTheme:
 
     _THEMES = {
         BIRTHDAY: {
-            # Warm gold → rose → amber cycle
             "hue_start":  35.0,
             "hue_range":  80.0,
             "saturation": 0.92,
             "glow_color": (255, 180, 40),
             "particle_palette": [
-                QColor(255, 215,  50),   # gold
-                QColor(255, 140,  60),   # amber
-                QColor(255,  90, 120),   # rose
-                QColor(255, 200, 100),   # pale gold
-                QColor(220,  80, 200),   # magenta
+                QColor(255, 215,  50),
+                QColor(255, 140,  60),
+                QColor(255,  90, 120),
+                QColor(255, 200, 100),
+                QColor(220,  80, 200),
             ],
         },
         NEW_YEAR: {
-            # Cyan → violet → electric blue cycle
             "hue_start": 180.0,
             "hue_range": 160.0,
             "saturation": 0.95,
             "glow_color": (80, 200, 255),
             "particle_palette": [
-                QColor( 80, 220, 255),   # cyan
-                QColor(140,  80, 255),   # violet
-                QColor(200, 240, 255),   # ice white
-                QColor( 40, 160, 255),   # sky blue
-                QColor(180, 100, 255),   # purple
+                QColor( 80, 220, 255),
+                QColor(140,  80, 255),
+                QColor(200, 240, 255),
+                QColor( 40, 160, 255),
+                QColor(180, 100, 255),
             ],
         },
     }
@@ -308,14 +300,11 @@ class EventTheme:
         """
         hue = (self.hue_start + (hue_offset + local_offset) % self.hue_range) % 360.0
 
-        # Subtle organic saturation breath
         sat = self.saturation * (0.93 + math.sin(time * 0.4 + local_offset * 0.015) * 0.07)
-        # Subtle brightness pulse
         val = 0.97 + math.sin(time * 0.6 + local_offset * 0.02) * 0.03
 
         return QColor.fromHsvF(hue / 360.0, min(sat, 1.0), min(val, 1.0))
 
-#  LIQUID BORDER WIDGET  —  Organic animated border with particles
 
 class LiquidBorderWidget(QWidget):
     """
@@ -332,10 +321,8 @@ class LiquidBorderWidget(QWidget):
         super().__init__(parent)
         self.setAttribute(Qt.WA_TransparentForMouseEvents)
 
-        # Noise
         self.noise = PerlinNoise(seed=42)
 
-        # Animation state
         self.time        = 0.0
         self.hue_offset  = 0.0
         self.flow_speed  = 0.022
@@ -343,39 +330,31 @@ class LiquidBorderWidget(QWidget):
         self.border_width = 5.0
         self.path_smoothness = 0.82
 
-        # Theme
         self.theme = EventTheme(event_type)
 
-        # Particles
         self.particles = ParticleSystem(self.theme.particle_palette)
         self._spawn_tick = 0
 
-        # Countdown
         self.duration_ms   = duration_ms
         self.elapsed_ms    = 0
         self._countdown_ms = duration_ms
 
-        # Path cache — rebuild only on resize
         self._cached_path: Optional[QPainterPath] = None
         self._cached_size = (0, 0)
 
-        # 60 FPS timer
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._tick)
         self._timer.start(16)
 
-    # Tick
     def _tick(self):
         self.time       += self.flow_speed
         self.hue_offset  = (self.hue_offset + 1.4) % self.theme.hue_range
         self.elapsed_ms += 16
         self._countdown_ms = max(0, self.duration_ms - self.elapsed_ms)
 
-        # Particle emission — periodic bursts along the border
         self._spawn_tick += 1
-        if self._spawn_tick % 8 == 0:  # every ~8 frames
+        if self._spawn_tick % 8 == 0:
             w, h = self.width(), self.height()
-            # Spawn at a random border position
             side = random.randint(0, 3)
             if side == 0:   px, py = random.uniform(0, w), 8.0
             elif side == 1: px, py = w - 8.0, random.uniform(0, h)
@@ -386,7 +365,6 @@ class LiquidBorderWidget(QWidget):
         self.particles.update()
         self.update()
 
-    # Noise → offset
     def _organic_offset(self, position: float, edge_id: float) -> float:
         """FBM-based offset — single call replaces 4 noise instances."""
         return self.noise.fbm(
@@ -398,7 +376,6 @@ class LiquidBorderWidget(QWidget):
             lacunarity=2.15,
         ) * self.wave_scale
 
-    # Path building
     def _build_liquid_path(self) -> QPainterPath:
         rect = self.rect().adjusted(7, 7, -7, -7)
         w, h = rect.width(), rect.height()
@@ -450,13 +427,11 @@ class LiquidBorderWidget(QWidget):
         path.closeSubpath()
         return path
 
-    # Paint
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
         painter.setRenderHint(QPainter.SmoothPixmapTransform)
 
-        # Background
         bg = QPainterPath()
         bg.addRoundedRect(QRectF(self.rect().adjusted(3, 3, -3, -3)), 17, 17)
         grad = QRadialGradient(self.rect().center(),
@@ -466,14 +441,11 @@ class LiquidBorderWidget(QWidget):
         grad.setColorAt(1.0, QColor(11, 14, 20, 255))
         painter.fillPath(bg, QBrush(grad))
 
-        # Liquid path
         sz = (self.width(), self.height())
         if sz != self._cached_size:
             self._cached_size = sz
-        # Always rebuild, small widget, fast enough; correctness > micro-opt
         path = self._build_liquid_path()
 
-        # Conical gradient for the main line
         cg = QConicalGradient(self.rect().center(), self.hue_offset)
         offsets = [0.0, 0.14, 0.28, 0.42, 0.57, 0.71, 0.85, 1.0]
         for pos in offsets:
@@ -485,38 +457,31 @@ class LiquidBorderWidget(QWidget):
 
         bw = self.border_width
 
-        # Layer 1 - deep shadow halo
         painter.setPen(QPen(QColor(0, 0, 0, 70), bw + 14))
         painter.drawPath(path)
 
-        # Layer 2 - wide outer glow (theme color)
         r, g, b = self.theme.glow_color
         outer = QColor(r, g, b, 40)
         painter.setPen(QPen(outer, bw + 10))
         painter.drawPath(path)
 
-        # Layer 3 - mid glow
         mid = QColor(r, g, b, 65)
         painter.setPen(QPen(mid, bw + 5))
         painter.drawPath(path)
 
-        # Layer 4 - main colored line
         pen = QPen(QBrush(cg), bw)
         pen.setCapStyle(Qt.RoundCap)
         pen.setJoinStyle(Qt.RoundJoin)
         painter.setPen(pen)
         painter.drawPath(path)
 
-        # Layer 5 - bright inner highlight
         hi = self.theme.cyclic_color(self.hue_offset, 0, self.time)
         hi.setAlpha(170)
         painter.setPen(QPen(hi, bw * 0.45))
         painter.drawPath(path)
 
-        # Particles
         self.particles.draw(painter)
 
-        # Countdown ring
         self._draw_countdown(painter)
 
         painter.end()
@@ -535,19 +500,16 @@ class LiquidBorderWidget(QWidget):
         cy = self.height() - margin - r
         rect = QRectF(cx - r, cy - r, r * 2, r * 2)
 
-        # Track (background arc)
         painter.setPen(QPen(QColor(255, 255, 255, 25), 2.0, Qt.SolidLine, Qt.RoundCap))
         painter.setBrush(Qt.NoBrush)
         painter.drawEllipse(rect)
 
-        # Progress arc
         span = int(360 * 16 * progress)
         r2, g2, b2 = self.theme.glow_color
         arc_color = QColor(r2, g2, b2, 180)
         painter.setPen(QPen(arc_color, 2.0, Qt.SolidLine, Qt.RoundCap))
-        painter.drawArc(rect, 90 * 16, -span)   # start at top, go clockwise
+        painter.drawArc(rect, 90 * 16, -span)
 
-#  ANIMATED PROPERTY MIXIN. PySide6-compatible Q_PROPERTY workaround
 
 class _AnimBase(QDialog):
     """
@@ -562,28 +524,24 @@ class _AnimBase(QDialog):
         self._rotation = 0.0
         self._glow     = 0.0
 
-    # scale_factor
     def _get_scale(self)      -> float: return self._scale
     def _set_scale(self, v: float):
         self._scale = v
         self.update()
     scale_factor = Property(float, _get_scale, _set_scale)
 
-    # rotation_angle
     def _get_rotation(self)   -> float: return self._rotation
     def _set_rotation(self, v: float):
         self._rotation = v
         self.update()
     rotation_angle = Property(float, _get_rotation, _set_rotation)
 
-    # glow_intensity
     def _get_glow(self)       -> float: return self._glow
     def _set_glow(self, v: float):
         self._glow = v
         self.update()
     glow_intensity = Property(float, _get_glow, _set_glow)
 
-#  SPECIAL EVENT POPUP
 
 class SpecialEventPopup(_AnimBase):
     """
@@ -618,7 +576,6 @@ class SpecialEventPopup(_AnimBase):
 
         QTimer.singleShot(duration_ms, self._close_timeout)
 
-    # Font
     def _load_font(self) -> QFont:
         candidates = [
             _resource_path(os.path.join("fonts", "Inter-Regular.ttf")),
@@ -633,19 +590,16 @@ class SpecialEventPopup(_AnimBase):
                         return QFont(families[0], 12)
         return QFont("Segoe UI", 12)
 
-    # UI
     def _build_ui(self, title: str, subtitle: str,
                   message: str, icon_path: str):
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setFixedSize(470, 265)
 
-        # Liquid border (with theme + duration for countdown)
         self.border_widget = LiquidBorderWidget(
             self, event_type=self.event_type, duration_ms=self.duration_ms)
         self.border_widget.setGeometry(0, 0, 470, 265)
 
-        # Inner dark container
         self.container = QFrame(self)
         self.container.setObjectName("container")
         self.container.setGeometry(7, 7, 456, 251)
@@ -662,11 +616,9 @@ class SpecialEventPopup(_AnimBase):
         root.setContentsMargins(14, 12, 14, 10)
         root.setSpacing(9)
 
-        # — Content row —
         content = QHBoxLayout()
         content.setSpacing(13)
 
-        # Icon frame
         icon_frame = QFrame()
         icon_frame.setFixedSize(82, 82)
         r, g, b = self.theme.glow_color
@@ -687,7 +639,6 @@ class SpecialEventPopup(_AnimBase):
         il.addWidget(self.icon_label)
         content.addWidget(icon_frame)
 
-        # Text column
         text_w = QWidget()
         text_w.setStyleSheet("background:transparent;")
         tl = QVBoxLayout(text_w)
@@ -698,7 +649,6 @@ class SpecialEventPopup(_AnimBase):
         self.title_label.setFont(QFont(self.custom_font.family(), 17, QFont.Bold))
         self.title_label.setWordWrap(True)
         self.title_label.setMaximumHeight(42)
-        # Theme-appropriate title gradient
         if self.event_type == EventTheme.BIRTHDAY:
             title_css = "color: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #FFD700, stop:0.5 #FF8C00, stop:1 #FFD700);"
         else:
@@ -724,7 +674,6 @@ class SpecialEventPopup(_AnimBase):
         content.addWidget(text_w, 1)
         root.addLayout(content)
 
-        # Close button row
         close_row = QHBoxLayout()
         close_row.addStretch()
         self.close_btn = QPushButton()
@@ -736,7 +685,6 @@ class SpecialEventPopup(_AnimBase):
         close_row.addWidget(self.close_btn)
         root.addLayout(close_row)
 
-        # Position: top-right of primary screen
         screen = QGuiApplication.primaryScreen().availableGeometry()
         self.move(screen.right() - self.width() - 22, screen.top() + 38)
 
@@ -756,7 +704,6 @@ class SpecialEventPopup(_AnimBase):
                 p.end()
                 self.icon_label.setPixmap(final)
                 return
-        # Emoji fallback
         emoji = "🎂" if self.event_type == EventTheme.BIRTHDAY else "🎉"
         self.icon_label.setText(emoji)
         self.icon_label.setFont(QFont(self.custom_font.family(), 40))
@@ -764,7 +711,6 @@ class SpecialEventPopup(_AnimBase):
         self.icon_label.setStyleSheet(
             f"color:rgb({r},{g},{b}); background:transparent;")
 
-    # Animations
     def _setup_animations(self):
         self.opacity_effect = QGraphicsOpacityEffect(self)
         self.setGraphicsEffect(self.opacity_effect)
@@ -799,7 +745,6 @@ class SpecialEventPopup(_AnimBase):
 
         self._anims = [fade, scale, rot, glow]
 
-    # Paint
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
@@ -830,7 +775,6 @@ class SpecialEventPopup(_AnimBase):
         painter.end()
         super().paintEvent(event)
 
-    # Sound
     def _play_sound(self):
         if not self.sound_path or not os.path.exists(self.sound_path):
             return
@@ -856,7 +800,6 @@ class SpecialEventPopup(_AnimBase):
         if hasattr(self, "border_widget"):
             self.border_widget._timer.stop()
 
-    # Close
     def _close_user(self):
         self._stop_sound()
         self.closed_by_user.emit()
@@ -869,8 +812,6 @@ class SpecialEventPopup(_AnimBase):
     def closeEvent(self, event):
         self._stop_sound()
         event.accept()
-
-#  CLOSE BUTTON PAINTER. Module-level helper (not recreated per-instance)
 
 def _draw_close_btn(widget: QWidget, _event):
     p = QPainter(widget)
@@ -885,7 +826,6 @@ def _draw_close_btn(widget: QWidget, _event):
     p.drawLine(8, 18, 18, 8)
     p.end()
 
-#  BIRTHDAY INPUT DIALOG. Compact birthdate collector
 
 class BirthdayInputDialog(QDialog):
     """
@@ -905,8 +845,6 @@ class BirthdayInputDialog(QDialog):
         self._build_ui()
         self._apply_style()
 
-    # i18n
-    # Key mapping: short local keys → translations.py "bday_*" keys
     _KEY_MAP = {
         "title_win":  "bday_title_win",
         "heading":    "bday_heading",
@@ -928,7 +866,6 @@ class BirthdayInputDialog(QDialog):
     def _load_font(self) -> QFont:
         return _load_app_font(11)
 
-    # UI
     def _build_ui(self):
         layout = QVBoxLayout(self)
         layout.setSpacing(10)
@@ -961,12 +898,11 @@ class BirthdayInputDialog(QDialog):
         row.addWidget(self.date_edit)
         layout.addLayout(row)
 
-        # Hint — hidden until validation fails
         self.hint_label = QLabel(self._t("hint_age"))
         self.hint_label.setFont(QFont(self.custom_font.family(), 9))
         self.hint_label.setWordWrap(True)
         self.hint_label.setAlignment(Qt.AlignRight)
-        self.hint_label.setVisible(False)   # ← hidden by default
+        self.hint_label.setVisible(False)
         layout.addWidget(self.hint_label)
 
         btns = QHBoxLayout()
@@ -1072,7 +1008,6 @@ class BirthdayInputDialog(QDialog):
         self.cancel_btn.setObjectName("cancel")
         self.submit_btn.setObjectName("submit")
 
-    # Validation
     def _validate(self):
         bd    = self.date_edit.date().toPython()
         today = date.today()
@@ -1093,7 +1028,6 @@ class BirthdayInputDialog(QDialog):
         self.hint_label.setVisible(False)
         self.accept()
 
-#  MODULE HELPERS
 
 def _resource_path(relative: str) -> str:
     """Resolves asset paths for both dev mode and PyInstaller .exe."""
@@ -1110,7 +1044,7 @@ def _resource_path(relative: str) -> str:
         if alt.exists():
             return str(alt)
 
-    return p  # return best guess even if missing
+    return p
 
 def _load_app_font(size: int = 11) -> QFont:
     """Load Inter-Regular (shared across dialogs)."""
@@ -1127,7 +1061,6 @@ def _load_app_font(size: int = 11) -> QFont:
                     return QFont(families[0], size)
     return QFont("Segoe UI", size)
 
-#  SPECIAL EVENTS MANAGER
 
 class SpecialEventsManager:
     """
@@ -1142,7 +1075,6 @@ class SpecialEventsManager:
         self._init_db()
         QTimer.singleShot(5000, self._check_and_prompt)
 
-    # DB helpers
     def _get_db_path(self) -> str:
         base = (os.path.dirname(sys.executable)
                 if getattr(sys, "frozen", False)
@@ -1189,7 +1121,6 @@ class SpecialEventsManager:
                          (bd.isoformat(),))
         self.birthdate = bd
 
-    # Logic
     def _check_and_prompt(self):
         bd = self._get_birthdate()
         if bd is None:
@@ -1217,7 +1148,6 @@ class SpecialEventsManager:
                 not self._triggered_today("birthday")):
             self._fire_birthday(today.year - self.birthdate.year)
 
-    # Event popups
     def _fire_new_year(self):
         lang  = getattr(self.app, "current_language", "fr")
         year  = date.today().year

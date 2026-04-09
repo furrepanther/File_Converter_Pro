@@ -37,7 +37,6 @@ class SystemNotifier:
     - The operation is not excluded (PDF Protection, Optimization)
     """
     
-    # Operations excluded from notifications
     EXCLUDED_OPERATIONS = [
         "protect_pdf",
         "office_optimization",
@@ -57,15 +56,14 @@ class SystemNotifier:
         """
         self.app_instance = app_instance
         self.language = language
-        self._tm = None  # injected via set_translator() from app.py
+        self._tm = None
         self.app_name = "File Converter Pro"
         self.app_id = "FileConverterPro.SystemNotifier"
         
         # Resource paths (dev + PyInstaller support)
-        self.icon_path = self._get_resource_path("icon.png")  # Native PNG for toasts
+        self.icon_path = self._get_resource_path("icon.png")
         self.sound_path = self._get_resource_path(os.path.join("SFX", "notif.mp3"))
         
-        # Use PNG directly without conversion or resizing
         self.toast_icon_path = self.icon_path if os.path.exists(self.icon_path) else ""
         
         print(f"[NOTIFIER] ✅ Initialized - Icon: {os.path.exists(self.toast_icon_path) if self.toast_icon_path else 'None'}")
@@ -89,7 +87,7 @@ class SystemNotifier:
         if getattr(sys, 'frozen', False):
             base_path = sys._MEIPASS
         else:
-            # Development mode
+            # Dev mode
             base_path = Path(__file__).parent.absolute()
         
         return os.path.join(base_path, relative_path)
@@ -99,7 +97,6 @@ class SystemNotifier:
         fallback = "Task « {task} » in {app} completed successfully"
         if self._tm is not None:
             template = self._tm.translate_text("notif_task_done_fr")
-            # Fallback if the key has no translation (returns the raw key)
             if "{task}" not in template:
                 template = fallback
         else:
@@ -161,24 +158,20 @@ class SystemNotifier:
         Returns:
             bool: True if the notification was sent, False otherwise
         """
-        # Check if notifications are enabled in settings
         if not config_enabled:
             print(f"[NOTIFIER] ❌ Notifications disabled in settings")
             return False
         
-        # Check if the operation should be notified
         if not self.should_notify(operation_type):
             print(f"[NOTIFIER] ⚠️ Excluded operation: {operation_type}")
             return False
         
         try:
-            # Prepare content
             task_name = self._get_task_display_name(operation_type)
             message = self._translate_message(task_name)
             
             print(f"[NOTIFIER] 📤 Sending notification: {operation_type} → '{message}'")
             
-            # Determine the icon to use
             icon_to_use = ""
             if self.toast_icon_path and os.path.exists(self.toast_icon_path):
                 icon_to_use = self.toast_icon_path
@@ -186,7 +179,6 @@ class SystemNotifier:
             else:
                 print("[NOTIFIER] ⚠️ No icon available")
             
-            # Create the notification
             toast = Notification(
                 app_id=self.app_id,
                 title=self.app_name,
@@ -195,17 +187,14 @@ class SystemNotifier:
                 icon=icon_to_use,
             )
             
-            # Add a button opening the GitHub repository
             toast.add_actions(
                 label=self._repo_button_label(),
                 launch=self.REPO_URL,
             )
             
-            # Display the notification
             toast.show()
             print(f"[NOTIFIER] ✅ Notification displayed successfully")
             
-            # Play the notification sound (if available)
             if PLAY_SOUND_AVAILABLE and self.sound_path and os.path.exists(self.sound_path):
                 try:
                     print(f"[NOTIFIER] 🔊 Playing sound: {self.sound_path}")

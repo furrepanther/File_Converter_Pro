@@ -203,7 +203,6 @@ class TermsAndPrivacyDialog(QDialog):
                 }
             """)
 
-        # Terms of Use widget
         self.terms_tab = QWidget()
         self.terms_tab.setStyleSheet(f"background-color: {'#2d2d2d' if self.dark_mode else '#ffffff'};")
         terms_layout = QVBoxLayout(self.terms_tab)
@@ -300,7 +299,6 @@ class TermsAndPrivacyDialog(QDialog):
         self.terms_text.document().setDefaultStyleSheet(self.get_html_theme_css())
         terms_layout.addWidget(self.terms_text)
 
-        # Privacy Policy widget
         self.privacy_tab = QWidget()
         self.privacy_tab.setStyleSheet(f"background-color: {'#2d2d2d' if self.dark_mode else '#ffffff'};")
         privacy_layout = QVBoxLayout(self.privacy_tab)
@@ -404,7 +402,6 @@ class TermsAndPrivacyDialog(QDialog):
         self.terms_text.anchorClicked.connect(self.handle_terms_link_click)
         self.privacy_text.anchorClicked.connect(self.handle_privacy_link_click)
 
-        # Compact Contact & Support section
         contact_group = QGroupBox(self.translate_text("Contact"))
         if self.dark_mode:
             contact_group.setStyleSheet("""
@@ -522,7 +519,6 @@ class TermsAndPrivacyDialog(QDialog):
 
         layout.addWidget(contact_group)
 
-        # Checkboxes
         checkbox_layout = QHBoxLayout()
         checkbox_layout.setSpacing(15)
 
@@ -536,7 +532,6 @@ class TermsAndPrivacyDialog(QDialog):
         checkbox_layout.addWidget(self.privacy_checkbox)
         layout.addLayout(checkbox_layout)
 
-        # Buttons
         button_layout = QHBoxLayout()
         button_layout.setSpacing(12)
 
@@ -590,7 +585,6 @@ class TermsAndPrivacyDialog(QDialog):
 
         layout.addLayout(button_layout)
 
-        # Connections
         self.terms_checkbox.stateChanged.connect(self.update_accept_button)
         self.privacy_checkbox.stateChanged.connect(self.update_accept_button)
         self.accept_button.clicked.connect(self.accept)
@@ -741,7 +735,6 @@ class TermsAndPrivacyDialog(QDialog):
                 }
             """
 
-    # Keep old name as alias for backward compatibility
     def get_html_dark_theme_css(self):
         return self.get_html_theme_css()
 

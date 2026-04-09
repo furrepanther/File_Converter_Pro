@@ -52,18 +52,15 @@ if (-not (Test-Path $SpecFile)) {
 }
 Write-Success "Spec file found: $SpecFile"
 
-# Onedir folder (warn only — we'll copy there after build)
 if (-not (Test-Path $OnedirFolder)) {
     Write-Warning "Onedir folder not found: $OnedirFolder"
     Write-Warning "Quick Check.exe will be built but NOT copied automatically."
     Write-Warning "Run build.ps1 first to generate the main onedir build."
 }
 
-# Cleanup
 
 Write-Info "Cleaning previous build artifacts..."
 
-# Force-remove the build folder (OneDrive/Defender can lock localpycs)
 $buildFolder = "build\quick_check"
 if (Test-Path $buildFolder) {
     Get-ChildItem $buildFolder -Recurse -Force | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
@@ -80,7 +77,6 @@ if (Test-Path $OutputExe) {
     Write-Success "Previous exe removed"
 }
 
-# Compilation
 
 Write-Info "Compiling Quick Check..."
 $startTime = Get-Date
@@ -99,8 +95,6 @@ try {
 $duration = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 2)
 Write-Success "Compiled in $duration seconds"
 
-# Verify output, copy to onedir, then clean up
-
 if (-not (Test-Path $OutputExe)) {
     Write-Fail "Compilation produced no exe — check PyInstaller output above."
     exit 1
@@ -109,7 +103,6 @@ if (-not (Test-Path $OutputExe)) {
 $sizeMB = [math]::Round((Get-Item $OutputExe).Length / 1MB, 2)
 Write-Success "Exe created: $sizeMB MB"
 
-# Copy to onedir first
 if (Test-Path $OnedirFolder) {
     Copy-Item -Force $OutputExe $DestExe
     Write-Success "Deployed to: $DestExe"
@@ -118,10 +111,8 @@ if (Test-Path $OnedirFolder) {
     Write-Warning "Manually copy '$OutputExe' to '$OnedirFolder' when ready."
 }
 
-# Remove the exe from dist\ (no longer needed there)
 Remove-Item -Force $OutputExe -ErrorAction SilentlyContinue
 
-# Summary
 
 Write-Title "BUILD COMPLETE"
 Write-Info "Exe       : $OutputExe"

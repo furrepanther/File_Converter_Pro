@@ -27,9 +27,6 @@ DEFAULT_CONFIG: dict = {
     "dark_mode":                  False,
     # NOTE: "language" is intentionally absent from defaults.
     # Absence means "fresh install — let the caller decide the language"
-    # (dev flag --fr/--en, or installer --lang <code>).
-    # ConfigManager.load_config() resolves the final value after applying
-    # any forced language, then saves it so subsequent launches find it.
     "last_project":               None,
     "auto_open_last_project":     False,
     "conversion_quality":         "standard",
@@ -65,12 +62,9 @@ def is_windows_dark_mode() -> bool:
         )
         value, _ = winreg.QueryValueEx(key, "AppsUseLightTheme")
         winreg.CloseKey(key)
-        # AppsUseLightTheme: 0 → dark mode, 1 → light mode
         return value == 0
     except Exception:
         return False
-
-# Encryption helpers
 
 def _load_or_create_key(key_file: str) -> bytes | None:
     """Load an existing Fernet key or generate and persist a new one."""
@@ -92,8 +86,6 @@ def _build_cipher(key_file: str) -> Fernet | None:
     """Return a Fernet cipher suite, or None if key loading fails."""
     key = _load_or_create_key(key_file)
     return Fernet(key) if key else None
-
-# Config I/O
 
 def _decrypt_config(path: str, cipher: Fernet) -> dict:
     """Read and decrypt an encrypted config file."""
@@ -118,7 +110,6 @@ def _write_plain_config(path: str, data: dict) -> None:
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
 
-# ConfigManager
 
 class ConfigManager:
     """Load, save, and manage user preferences for File Converter Pro."""
@@ -132,8 +123,6 @@ class ConfigManager:
         self.key_file       = key_file
         self.default_config = DEFAULT_CONFIG.copy()
         self.cipher_suite   = _build_cipher(self.key_file)
-
-    # Public API
 
     def load_config(self) -> dict:
         """
@@ -164,8 +153,6 @@ class ConfigManager:
         except Exception as e:
             print(f"Error saving config: {e}")
             return False
-
-    # Private helpers
 
     def _read_config(self) -> dict:
         """

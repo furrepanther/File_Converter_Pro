@@ -29,7 +29,6 @@ import time
 import zipfile
 from pathlib import Path
 
-#  Result dataclass
 
 class ConversionResult:
     __slots__ = ("success", "source", "target", "elapsed", "error", "file_size")
@@ -45,8 +44,6 @@ class ConversionResult:
     def __repr__(self):
         s = "OK" if self.success else f"ERR({self.error})"
         return f"<ConversionResult {s} {self.source!r}→{self.target!r}>"
-
-#  Helpers
 
 def _timed(fn):
     t0 = time.perf_counter()
@@ -73,8 +70,6 @@ def _read_file_b64(path):
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode()
 
-#  Category map
-
 CATEGORY_MAP = {
     "txt_to_pdf":  "document", "rtf_to_pdf":   "document",
     "txt_to_docx": "document", "rtf_to_docx":  "document",
@@ -97,7 +92,6 @@ CATEGORY_MAP = {
     "webm_to_mp3": "audio",    "mkv_to_mp3":   "audio",
 }
 
-#  Engine
 
 class AdvancedConverterEngine:
 
@@ -140,7 +134,6 @@ class AdvancedConverterEngine:
         "mkv_to_mp3":   ("_ffmpeg_convert", "mp3"),
     }
 
-    # COM / Office automation helper
     @staticmethod
     def _office_to_pdf_com(src: str, dst: str, app_name: str) -> bool:
         """
@@ -158,10 +151,10 @@ class AdvancedConverterEngine:
             # Excel constants
             XL_PORTRAIT  = 1
             XL_LANDSCAPE = 2
-            XL_PDF       = 0    # xlTypePDF
+            XL_PDF       = 0
 
             # Word constants
-            WD_PDF = 17   # wdFormatPDF
+            WD_PDF = 17
 
             if "Excel" in app_name:
                 app = comtypes.client.CreateObject(app_name)
@@ -200,8 +193,6 @@ class AdvancedConverterEngine:
                 src_esc = src_abs.replace("\\", "\\\\").replace("'", "\\'")
                 dst_esc = tmp_dst.replace("\\", "\\\\")
 
-                # MsoTriState values: msoTrue=-1, msoFalse=0
-                # Strategy A: SaveAs format 32 (ppSaveAsPDF)
                 ps_a = f"""
 $app = New-Object -ComObject PowerPoint.Application
 $app.Visible = -1
@@ -220,7 +211,6 @@ try {{
                     shutil.move(tmp_dst, dst_abs)
                     return Path(dst_abs).exists()
 
-                # Strategy B: PrintOut to file (like "Print to PDF")
                 ps_b = f"""
 $app = New-Object -ComObject PowerPoint.Application
 $app.Visible = -1
@@ -262,7 +252,6 @@ try {{
             print(f"[COM] {app_name} failed: {_com_exc}")
             return False
 
-    # public
     def convert(self, conversion_type, src, dst_dir):
         if conversion_type not in self._DISPATCH:
             return ConversionResult(False, src, "", error=f"Unknown type: {conversion_type}")
@@ -287,8 +276,6 @@ try {{
             if progress_cb:
                 progress_cb(i, len(sources), src)
         return results
-
-    #  TXT / RTF
 
     def _txt_to_pdf(self, src, dst):
         from reportlab.lib.pagesizes import A4
@@ -328,12 +315,9 @@ try {{
                                  tables (trowd), text with formatting
         """
         src_abs = str(Path(src).resolve())
-
-        # 1. Word COM — best quality, handles everything
         if self._office_to_pdf_com(src_abs, dst, "Word.Application"):
             return
 
-        # 2. pypandoc
         try:
             import pypandoc
             pypandoc.convert_file(src, "pdf", outputfile=dst)
@@ -341,15 +325,7 @@ try {{
         except Exception:
             pass
 
-        # 3. Native — parse RTF, extract images + tables + text → PDF
         self._rtf_to_pdf_native(src, dst)
-
-    #  RTF Native Parser — shared engine used by both _rtf_to_pdf_native
-    #  and the native fallback in _rtf_to_docx.
-    #
-    #  Preserves: bold · italic · underline · font sizes · colors
-    #             tables (trowd/cell/row) · embedded PNG/JPEG images (pict)
-    #  No dependency on striprtf, pandoc, or Office.
 
     @staticmethod
     def _rtf_read_raw(src: str) -> str:
@@ -397,7 +373,7 @@ try {{
             elif re.search(r"\\jpegblip\b", block):
                 fmt = "jpg"
             else:
-                continue  # wmf/emf — skip
+                continue
             hex_data = re.sub(r"\\[a-zA-Z]+[-0-9]*\s?", "", block)
             hex_data = re.sub(r"[^0-9a-fA-F]", "", hex_data)
             if len(hex_data) < 8:
@@ -482,20 +458,15 @@ try {{
         stylesheet, info, pict, object, header, footer, footnote…) are skipped.
         """
         SKIP_GROUPS = {
-            # Structural / metadata
             "pict", "object", "objdata", "objclass", "objname",
             "info", "fonttbl", "colortbl", "stylesheet",
             "header", "footer", "headerf", "footerf", "headerl", "headerr",
             "footerl", "footerr", "footnote", "annotation", "comment",
-            # Fields — fldinst only, fldrslt holds visible text so keep it
             "fldinst",
-            # Binary blobs / Office theme/chart data
             "themedata", "colorschememapping", "datastore", "datastoreprop",
             "wgrffmtfilter", "blipuid", "mmathPr",
-            # List/revision/doc metadata
             "listtable", "listoverridetable", "rsidtbl",
             "generator", "pgdsctbl", "docvar", "xmlnstbl",
-            # Drawing/shapes — too complex, skip entirely
             "shp", "shpinst", "shprslt", "sp", "sn", "sv",
             "dptxbxtext", "dptxbx",
         }
@@ -530,7 +501,6 @@ try {{
             kind = tok[0]
             if kind == "open":
                 stack.append(state.copy())
-                # Lookahead: if next token is \* this is a destination group → skip it
                 if i + 1 < len(tokens) and tokens[i + 1] == ("ctrl", "*", None):
                     state.skip_depth += 1
             elif kind == "close":
@@ -541,7 +511,7 @@ try {{
             elif kind == "ctrl":
                 name, param = tok[1], tok[2]
                 if name == "*":
-                    continue  # handled via lookahead on open
+                    continue
                 if name in SKIP_GROUPS:
                     state.skip_depth += 1; continue
                 if state.skip_depth > 0:
@@ -563,7 +533,7 @@ try {{
                 elif name == "pard":
                     state.bold=False; state.italic=False
                     state.underline=False; state.fontsize=24; state.color_idx=0
-                    state.in_table=False  # \pard exits table mode
+                    state.in_table=False
                 elif name == "intbl":
                     state.in_table = True
                 elif name == "cell":
@@ -618,14 +588,11 @@ try {{
 
         for sp in spans:
             if sp["cell_end"]:
-                # Each \cell ends one column — flush runs into current cell paras,
-                # then push that cell as a new column in cur_row_cells
                 cur_cell_paras.append(_flush(is_cell=True))
                 cur_row_cells.append(list(cur_cell_paras))
                 cur_cell_paras.clear()
                 continue
             if sp["row_end"]:
-                # \row ends the table row — flush any trailing runs
                 leftover = _flush(is_cell=True)
                 if leftover["text_content"] or leftover["runs"]:
                     cur_cell_paras.append(leftover)
@@ -729,14 +696,12 @@ try {{
             item = paras[idx]
 
             if item["type"] == "table_row":
-                # Collect all consecutive table_row items → one table
                 rows_data = []
                 while idx < len(paras) and paras[idx]["type"] == "table_row":
                     rows_data.append(paras[idx]); idx += 1
                 story.append(_build_rl_table(rows_data))
                 continue
 
-            # Regular paragraph
             para = item["para"]
             xml  = _runs_to_xml(para["runs"])
             idx += 1
@@ -757,14 +722,13 @@ try {{
                                        fontSize=dom, leading=max(dom+3,13))
                 story.append(Paragraph(xml, ps))
 
-        # Append embedded images (RTF embeds them in-stream but we append at end)
         for img_bytes, fmt in img_data:
             try:
                 from PIL import Image as PILImg
                 buf   = io.BytesIO(img_bytes)
                 pil   = PILImg.open(buf)
                 w, h  = pil.size
-                max_w = 120 * mm          # cap at 120 mm wide
+                max_w = 120 * mm
                 scale = min(1.0, max_w / max(w, 1))
                 buf.seek(0)
                 story.append(Spacer(1, 6))
@@ -810,7 +774,7 @@ try {{
         src_abs = str(Path(src).resolve())
         dst_abs = str(Path(dst).resolve())
 
-        # 1. Word COM — save directly as DOCX (wdFormatXMLDocument = 12)
+        # 1. Word COM
         try:
             import comtypes.client
             app = comtypes.client.CreateObject("Word.Application")
@@ -840,7 +804,7 @@ try {{
         except Exception:
             pass
 
-        # 3. Native — full formatting via shared RTF parser
+        # 3. Native
         from docx import Document
         from docx.shared import Pt, RGBColor
 
@@ -872,7 +836,6 @@ try {{
             item = paras[i]
 
             if item["type"] == "table_row":
-                # Collect all consecutive table rows into one DOCX table
                 rows = []
                 while i < len(paras) and paras[i]["type"] == "table_row":
                     rows.append(paras[i]["cells"]); i += 1
@@ -895,7 +858,6 @@ try {{
                             _add_runs(np_, cp["runs"])
                 continue
 
-            # Regular paragraph
             para  = item["para"]
             plain = para["text_content"]
             if not plain:
@@ -910,7 +872,6 @@ try {{
                 _add_runs(p, para["runs"])
             i += 1
 
-        # Append embedded images
         for img_bytes, _ in img_data:
             try:
                 doc.add_picture(io.BytesIO(img_bytes))
@@ -918,8 +879,6 @@ try {{
                 pass
 
         doc.save(dst)
-
-    #  CSV / JSON
 
     def _csv_to_json(self, src, dst):
         def _cast(val):
@@ -930,15 +889,12 @@ try {{
                 return True
             if val.lower() == "false":
                 return False
-            # Integer?
             try:
                 i = int(val)
-                # Avoid casting phone numbers / long digit strings as int
                 if len(val) < 16:
                     return i
             except ValueError:
                 pass
-            # Float?
             try:
                 return float(val)
             except ValueError:
@@ -983,8 +939,6 @@ try {{
             w.writeheader()
             w.writerows(flat)
 
-    #  XLSX
-
     def _xlsx_to_pdf(self, src, dst):
         """
         XLSX/XLS → PDF.
@@ -994,7 +948,7 @@ try {{
         """
         src_abs = str(Path(src).resolve())
 
-        # 1. COM / Microsoft Excel (handles XLS + XLSX, smart orientation built-in)
+        # 1. COM / Microsoft Excel
         if self._office_to_pdf_com(src_abs, dst, "Excel.Application"):
             return
 
@@ -1041,7 +995,6 @@ try {{
         ROW_ALT    = colors.HexColor("#f3f4f6")
         GRID_COLOR = colors.HexColor("#d1d5db")
 
-        # Smart orientation: analyse all sheets
         max_cols = 0
         max_rows = 0
         for sheet in wb.worksheets:
@@ -1121,8 +1074,6 @@ try {{
                 w.writerow([v.isoformat() if hasattr(v, "isoformat") else
                             (v if v is not None else "") for v in row])
 
-    #  PPTX → PDF
-
     def _pptx_to_pdf(self, src, dst):
         """
         PPTX/PPT → PDF.
@@ -1168,10 +1119,10 @@ try {{
         # 3. Native (python-pptx — PPTX only, not PPT)
         if Path(src).suffix.lower() == ".ppt":
             raise RuntimeError(
-                "Le format .ppt nécessite Microsoft Office ou LibreOffice.\n"
-                "COM PowerPoint a été tenté mais a échoué (voir [COM] dans la console).\n"
-                "Vérifiez que PowerPoint est bien fermé avant la conversion, "
-                "ou convertissez d'abord le fichier en .pptx."
+                "The .ppt format requires Microsoft Office or LibreOffice.\n"
+                "COM PowerPoint was attempted but failed (see [COM] in the console).\n"
+                "Make sure PowerPoint is fully closed before converting, "
+                "or convert the file to .pptx first."
             )
         self._pptx_to_pdf_native(src, dst)
 
@@ -1259,32 +1210,26 @@ try {{
                 import matplotlib
                 matplotlib.use("Agg")
                 import matplotlib.pyplot as plt
-                import matplotlib.patches as mpatches
                 import numpy as np
                 from pptx.enum.chart import XL_CHART_TYPE
-                from lxml import etree
 
                 chart = shape.chart
                 ctype = chart.chart_type
 
-                # Extract series data
                 NS_C = "http://schemas.openxmlformats.org/drawingml/2006/chart"
                 NS_A = "http://schemas.openxmlformats.org/drawingml/2006/main"
                 cxml = chart._element
 
                 series_list = []
                 for ser in cxml.findall(f".//{{{NS_C}}}ser"):
-                    # name
                     name = ""
                     v_el = ser.find(f".//{{{NS_C}}}tx//{{{NS_C}}}v")
                     if v_el is not None: name = v_el.text or ""
 
-                    # categories
                     cats = [el.find(f"{{{NS_C}}}v").text
                             for el in ser.findall(f".//{{{NS_C}}}cat//{{{NS_C}}}pt")
                             if el.find(f"{{{NS_C}}}v") is not None]
 
-                    # values
                     vals = []
                     for pt in ser.findall(f".//{{{NS_C}}}val//{{{NS_C}}}pt"):
                         v = pt.find(f"{{{NS_C}}}v")
@@ -1292,7 +1237,6 @@ try {{
                             try: vals.append(float(v.text))
                             except: vals.append(0.0)
 
-                    # per-point colours from dPt
                     pt_colors = {}
                     for dpt in ser.findall(f"{{{NS_C}}}dPt"):
                         idx_el = dpt.find(f"{{{NS_C}}}idx")
@@ -1301,7 +1245,6 @@ try {{
                             idx = int(idx_el.get("val", 0))
                             pt_colors[idx] = "#" + clr_el.get("val", "4472C4")
 
-                    # series-level colour
                     ser_clr = None
                     clr_el  = ser.find(f".//{{{NS_A}}}srgbClr")
                     if clr_el is not None:
@@ -1315,14 +1258,12 @@ try {{
                 if not series_list:
                     return False
 
-                # Draw with matplotlib
                 fig_w = float(inner_w) / 72 / 1.333 * 1.5
                 fig_h = fig_w * 0.6
                 fig, ax = plt.subplots(figsize=(fig_w, fig_h))
                 fig.patch.set_facecolor("white")
                 ax.set_facecolor("#f8f9fa")
 
-                # Determine chart family
                 is_pie  = ctype in (
                     XL_CHART_TYPE.PIE, XL_CHART_TYPE.PIE_EXPLODED,
                     XL_CHART_TYPE.DOUGHNUT, XL_CHART_TYPE.DOUGHNUT_EXPLODED,
@@ -1365,7 +1306,6 @@ try {{
                     ax.set_title(ser0["name"] or "Chart", fontsize=11, pad=10)
 
                 elif is_bar or (not is_line):
-                    # Default: grouped bar chart
                     cats    = ser0["cats"] or [str(i+1) for i in range(len(ser0["vals"]))]
                     x       = np.arange(len(cats))
                     n_ser   = len(series_list)
@@ -1387,7 +1327,6 @@ try {{
                         ax.legend(fontsize=8)
 
                 else:
-                    # Line
                     cats = ser0["cats"] or [str(i+1) for i in range(len(ser0["vals"]))]
                     for si2, ser2 in enumerate(series_list):
                         ax.plot(cats, ser2["vals"], marker="o", label=ser2["name"],
@@ -1418,7 +1357,6 @@ try {{
                 return True
 
             except Exception as e:
-                # Fallback: show chart as text summary
                 try:
                     chart = shape.chart
                     story.append(Paragraph(f"[Chart — {chart.chart_type}]", ST["h2"]))
@@ -1500,7 +1438,6 @@ try {{
                     except Exception:
                         pass
 
-        # Process each slide
         for sn, slide in enumerate(prs.slides, 1):
             shapes_sorted = sorted(
                 slide.shapes,
@@ -1512,23 +1449,19 @@ try {{
 
             for shape in shapes_sorted:
                 try:
-                    # Picture
                     if shape.shape_type == MSO_SHAPE_TYPE.PICTURE:
                         try: _add_img_blob(shape.image.blob, shape.image.ext)
                         except Exception: pass
                         continue
 
-                    # Chart
                     if shape.shape_type == MSO_SHAPE_TYPE.CHART:
                         _render_chart(shape)
                         continue
 
-                    # Table
                     if shape.has_table:
                         _render_table(shape.table)
                         continue
 
-                    # Text frame
                     if not shape.has_text_frame:
                         continue
                     if not shape.text_frame.text.strip():
@@ -1548,7 +1481,6 @@ try {{
                 except Exception:
                     pass
 
-            # Slide number footer
             story.append(Spacer(1, 6))
             story.append(Paragraph(f"— {sn} / {len(prs.slides)} —", ST["slide_n"]))
             if sn < len(prs.slides):
@@ -1572,8 +1504,6 @@ try {{
             try: os.remove(f)
             except Exception: pass
 
-    #  HTML → PDF  — lean stack (exe-friendly)
-
     def _html_to_pdf(self, src, dst):
         """
         HTML → PDF — lightweight strategy stack, PyInstaller-compatible.
@@ -1589,7 +1519,6 @@ try {{
         with open(src, "r", encoding="utf-8", errors="replace") as f:
             html_raw = f.read()
 
-        # Inline all local resources → self-contained HTML
         html = self._inline_all_resources(html_raw, base_dir)
 
         # Strategy 1: pdfkit (wkhtmltopdf)
@@ -1631,7 +1560,7 @@ try {{
         except Exception:
             pass
 
-        # Strategy 3: reportlab — parse HTML, no duplicates
+        # Strategy 3: reportlab
         self._reportlab_html_to_pdf(html, dst)
 
     def _inline_all_resources(self, html, base_dir):
@@ -1639,7 +1568,6 @@ try {{
         SRC_RE  = re.compile(r"""src=(['"])([^'"]+)\1""",  re.I)
         HREF_RE = re.compile(r"""href=(['"])([^'"]+)\1""", re.I)
 
-        # 1. <link rel="stylesheet"> -> <style>
         def _link_to_style(m):
             tag = m.group(0)
             if "stylesheet" not in tag.lower():
@@ -1661,13 +1589,11 @@ try {{
                 return tag
         html = re.sub(r"<link[^>]+>", _link_to_style, html, flags=re.I | re.S)
 
-        # 2. url() inside <style> blocks
         def _style_block(m):
             return "<style>" + self._inline_css_urls(m.group(1), base_dir) + "</style>"
         html = re.sub(r"<style[^>]*>(.*?)</style>",
                       _style_block, html, flags=re.I | re.S)
 
-        # 3. <img src="...">
         def _img_src(m):
             tag = m.group(0)
             sm  = SRC_RE.search(tag)
@@ -1724,7 +1650,6 @@ try {{
         MAX_W = A4[0] - 40 * mm
         base  = getSampleStyleSheet()
 
-        # 1. Parse <style> blocks → class rules dict
         class_rules = {}
         for sb in re.finditer(r'<style[^>]*>(.*?)</style>', html, re.I | re.S):
             css = sb.group(1)
@@ -1754,7 +1679,6 @@ try {{
             m  = re.search(r'([\d.]+)px', ml)
             return float(m.group(1)) * 0.75 if m else 0.0
 
-        # 2. Style cache
         _cache = {}
 
         def _sty(align=TA_LEFT, indent=0.0, size=10.5, bold=False):
@@ -1783,7 +1707,6 @@ try {{
                                fontName='Courier', fontSize=9, leading=13,
                                spaceAfter=6, backColor=colors.HexColor('#f5f5f5'))
 
-        # 3. Resolve align+indent from class= and style=
         _CLS_RE  = re.compile(r'''class=['"]([^'"]+)['"]''',  re.I)
         _STY_RE  = re.compile(r'''style=['"]([^'"]*?)['"]''', re.I)
         _SRC_RE  = re.compile(r'''src=['"]([^'"]+)['"]''',    re.I)
@@ -1819,7 +1742,6 @@ try {{
                     indent = i2
             return (align or TA_LEFT), indent
 
-        # 4. Inline markup
         def _decode(t):
             return (t.replace('&nbsp;', '\xa0')
                      .replace('&amp;',  '&')
@@ -1830,7 +1752,6 @@ try {{
 
         def _inline(frag):
             h = frag
-            # <span style="...">
             def _span(m):
                 inner = m.group(2)
                 sm2   = _STY_RE.search(m.group(1) or '')
@@ -1858,16 +1779,12 @@ try {{
             h = re.sub(r'<a[^>]*>(.*?)</a>',             r'\1',            h, flags=re.I|re.S)
             h = re.sub(r'<code[^>]*>(.*?)</code>',       r'\1',            h, flags=re.I|re.S)
 
-            # CRITICAL: save <br/> BEFORE stripping all tags
-            # otherwise <br> gets stripped and address lines collapse
             BR = '\x00BR\x00'
             h = re.sub(r'<br\s*/?>', BR, h, flags=re.I)
 
-            # Strip remaining HTML tags
             h = re.sub(r'<[^>]+>', '', h)
             h = _decode(h)
 
-            # Save b/i/font tags before HTML-escaping
             SAVED = {}
             for tag in ('<b>', '</b>', '<i>', '</i>',
                         '<font color=', '</font>'):
@@ -1877,16 +1794,13 @@ try {{
 
             h = h.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
 
-            # Restore saved tags
             for key, tag in SAVED.items():
                 h = h.replace(key, tag)
 
-            # Restore <br/>
             h = h.replace(BR, '<br/>')
 
             return re.sub(r' {2,}', ' ', h).strip()
 
-        # 5. Image helper
         tmp_imgs = []
 
         def _add_img(src_val):
@@ -1911,7 +1825,6 @@ try {{
             except Exception:
                 pass
 
-        # 6. Table helper
         def _parse_tbl(tbl_html):
             rows = []
             for rm in re.finditer(r'<tr[^>]*>(.*?)</tr>', tbl_html, re.I | re.S):
@@ -1941,7 +1854,6 @@ try {{
             t.setStyle(TableStyle(cmds))
             return t
 
-        # 7. Strip head / get body
         h2 = re.sub(r'<head[^>]*>.*?</head>',     '', html, flags=re.I | re.S)
         h2 = re.sub(r'<script[^>]*>.*?</script>', '', h2,   flags=re.I | re.S)
         bm = re.search(r'<body[^>]*>(.*?)</body>', h2,       re.I | re.S)
@@ -1949,7 +1861,6 @@ try {{
 
         story = []
 
-        # 8. Tokenise
         TAG_RE = re.compile(r'<(/?)(\w+)((?:\s[^>]*)?)/?>',  re.I)
         pos    = 0
 
@@ -1978,7 +1889,6 @@ try {{
                 if em:
                     inner = body[pos:pos + em.start()]
                     pos  += em.end()
-                    # Images inside <p>
                     for im in re.finditer(r'<img[^>]+>', inner, re.I):
                         sm = _SRC_RE.search(im.group(0))
                         if sm: _add_img(sm.group(1))
@@ -1987,7 +1897,6 @@ try {{
                         story.append(Paragraph(txt, _sty(align, indent)))
 
             elif tag == 'div' and not closing:
-                # Skip .pn (page number) divs entirely
                 cm2 = _CLS_RE.search(attrs)
                 if cm2 and 'pn' in cm2.group(1).split():
                     em = re.search(r'</div\s*>', body[pos:], re.I)
@@ -2045,8 +1954,6 @@ try {{
             try: os.remove(f)
             except Exception: pass
 
-    #  PDF → HTML — peak quality
-
     def _pdf_to_html(self, src, dst):
         """
         PDF → HTML — self-contained, faithful layout.
@@ -2067,19 +1974,15 @@ try {{
         doc  = fitz.open(src)
         name = Path(dst).stem
 
-        # Page geometry
         _widths  = [p.rect.width  for p in doc]
         _heights = [p.rect.height for p in doc]
         MED_W  = sorted(_widths)[len(_widths)  // 2] if _widths  else 595.0
         MED_H  = sorted(_heights)[len(_heights) // 2] if _heights else 842.0
 
-        # CSS page div width: map PDF points → screen pixels (96dpi / 72pt = 1.333)
         CSS_W  = max(620, min(1080, int(MED_W * 1.333)))
-        # Padding mirrors PDF margins (typically ~56pt on A4 → ~75px)
         PAD    = max(40, int(CSS_W * 0.075))
-        INNER  = CSS_W - PAD * 2   # usable text width in px
+        INNER  = CSS_W - PAD * 2
 
-        # Base font: A4 body text is usually 10–12pt
         BASE_F = max(11, min(15, round(MED_W / 50)))
 
         CSS = f"""<style>
@@ -2091,7 +1994,7 @@ try {{
     color: #111;
     line-height: 1.65;
   }}
-  /* ── page card ── */
+  /* page card */
   .page {{
     background: #fff;
     width: {CSS_W}px;
@@ -2101,7 +2004,7 @@ try {{
     border-radius: 3px;
     position: relative;
   }}
-  /* ── page number ── */
+  /* page number */
   .pn {{
     font-size: 9px;
     color: #bbb;
@@ -2109,7 +2012,7 @@ try {{
     margin-bottom: 14px;
     font-family: 'Segoe UI', Arial, sans-serif;
   }}
-  /* ── body paragraph ── */
+  /* body paragraph */
   p {{
     margin: 0 0 6px 0;
     text-align: justify;
@@ -2118,12 +2021,12 @@ try {{
   }}
   p.center {{ text-align: center; }}
   p.right  {{ text-align: right;  }}
-  /* ── headings ── */
+  /* headings */
   h1 {{ font-size: {BASE_F + 7}px; margin: 16px 0 8px; line-height: 1.25; }}
   h2 {{ font-size: {BASE_F + 5}px; margin: 14px 0 6px; line-height: 1.28; }}
   h3 {{ font-size: {BASE_F + 3}px; margin: 10px 0 5px; line-height: 1.3;  }}
   h4 {{ font-size: {BASE_F + 1}px; margin: 8px  0 4px; }}
-  /* ── inline ── */
+  /* inline */
   img {{
     max-width: 100%;
     height: auto;
@@ -2133,36 +2036,33 @@ try {{
   sup {{ font-size: 0.72em; vertical-align: super; }}
   sub {{ font-size: 0.72em; vertical-align: sub;   }}
   hr  {{ border: none; border-top: 1px solid #e0e0e0; margin: 18px 0; }}
-  /* ── two-column blocks ── */
+  /* two-column blocks */
   .col-r {{ margin-left: 50%; }}
-  /* ── indent levels ── */
+  /* indent levels */
   .ind1 {{ margin-left: {int(INNER * 0.05)}px; }}
   .ind2 {{ margin-left: {int(INNER * 0.10)}px; }}
   .ind3 {{ margin-left: {int(INNER * 0.15)}px; }}
 </style>"""
 
-        # Span → HTML
         def _span_html(span, page_origin_y):
             txt   = span.get("text", "")
             if not txt.strip():
-                return txt  # preserve spaces
+                return txt
             flags = span.get("flags",  0)
             size  = span.get("size",   BASE_F)
             color = span.get("color",  0)
-            orig  = span.get("origin", (0, 0))   # (x, baseline_y)
+            orig  = span.get("origin", (0, 0))
 
             styles = []
             if flags & 16:  styles.append("font-weight:700")
             if flags & 2:   styles.append("font-style:italic")
 
-            # Font size: only annotate when significantly different from base
             ratio = size / BASE_F if BASE_F else 1
             if ratio >= 1.35:
                 styles.append(f"font-size:{min(int(size * 1.333), 38)}px")
             elif ratio <= 0.78:
                 styles.append(f"font-size:{max(int(size * 1.333), 8)}px")
 
-            # Colour — skip near-black
             if color and color != 0:
                 r2 = (color >> 16) & 0xFF
                 g2 = (color >>  8) & 0xFF
@@ -2174,17 +2074,14 @@ try {{
                     .replace("	", "    ")
                     .replace("  ", " &nbsp;"))
 
-            # Superscript / subscript via baseline offset
             if len(orig) >= 2 and page_origin_y:
-                # fitz: origin[1] is baseline y; compare to block bbox top
-                pass   # handled at block level below
+                pass
 
             if not styles:
                 return safe
             style_str = ";".join(styles)
             return f'<span style="{style_str}">{safe}</span>'
 
-        # Block → HTML
         def _block_html(block, page_w):
             """
             Convert a fitz text block to an HTML element.
@@ -2194,7 +2091,6 @@ try {{
             x0, x1    = bbox[0], bbox[2]
             block_w   = x1 - x0
 
-            # Collect all spans text to determine block characteristics
             all_spans = [sp for ln in block.get("lines", [])
                          for sp in ln.get("spans", [])]
             if not all_spans:
@@ -2204,7 +2100,6 @@ try {{
             avg_size   = sum(sp.get("size", BASE_F) for sp in all_spans) / len(all_spans)
             all_bold   = all(sp.get("flags", 0) & 16 for sp in all_spans)
 
-            # Heading detection
             ratio = first_size / BASE_F if BASE_F else 1
             if ratio >= 1.6 or (ratio >= 1.3 and all_bold):
                 tag = "h1"
@@ -2217,8 +2112,6 @@ try {{
             else:
                 tag = "p"
 
-            # Alignment from X position
-            # Margin from left edge of page as fraction of page width
             left_margin_frac  = x0 / page_w if page_w else 0
             right_margin_frac = (page_w - x1) / page_w if page_w else 0
 
@@ -2226,14 +2119,11 @@ try {{
             indent_cls = ""
 
             if tag == "p":
-                # Centre: both margins roughly equal and both > 15%
                 if (abs(left_margin_frac - right_margin_frac) < 0.08
                         and left_margin_frac > 0.15):
                     align_cls = "center"
-                # Right-aligned: big left margin, small right margin
                 elif left_margin_frac > 0.45 and right_margin_frac < 0.12:
                     align_cls = "right"
-                # Indented body
                 elif 0.08 < left_margin_frac < 0.20:
                     indent_cls = "ind1"
                 elif 0.20 <= left_margin_frac < 0.30:
@@ -2241,11 +2131,8 @@ try {{
                 elif left_margin_frac >= 0.30:
                     indent_cls = "ind3"
 
-            # Build inner HTML
-            # Strategy: collect each line's text and width, then decide
-            # whether to join with space (natural wrap) or <br> (intentional).
             line_texts  = []
-            line_widths = []   # actual text width in points
+            line_widths = []
 
             for line in block.get("lines", []):
                 spans_html = "".join(
@@ -2254,23 +2141,14 @@ try {{
                 if not spans_html.strip():
                     continue
                 line_texts.append(spans_html)
-                # bbox width of this line
                 lbbox = line.get("bbox", [0, 0, 0, 0])
                 line_widths.append(lbbox[2] - lbbox[0])
 
             if not line_texts:
                 return "", ""
 
-            # Block text width (points)
             block_text_w = bbox[2] - bbox[0]
 
-            # Decide join mode:
-            # "wrap"  → lines are just natural word-wrap artefacts → join with space
-            # "break" → each line is intentionally short (address, sig, etc.) → <br>
-            #
-            # Heuristic: if MOST lines are short (< 75% of block width),
-            # they are intentional line breaks.
-            # Exception: single-line blocks always join (nothing to join anyway).
             if len(line_texts) == 1:
                 inner = line_texts[0]
             else:
@@ -2279,31 +2157,24 @@ try {{
                 )
                 short_ratio = short_lines / len(line_widths)
 
-                # Also: if the block itself is narrow (< 40% page width),
-                # it's likely a sidebar or address block → always use <br>
                 block_frac = block_text_w / page_w if page_w else 1
 
                 if short_ratio >= 0.5 or block_frac < 0.40:
-                    # Intentional line breaks → preserve them
                     inner = "<br>".join(line_texts)
                 else:
-                    # Natural word-wrap → join with space
                     inner = " ".join(line_texts)
 
-            # Build class list
             classes = " ".join(filter(None, [align_cls, indent_cls]))
             cls_attr = f' class="{classes}"' if classes else ""
 
             return f"<{tag}{cls_attr}>{inner}</{tag}>", align_cls
 
-        # Per-page rendering
         pages_html = []
 
         for page in doc:
             pn     = page.number + 1
             page_w = page.rect.width or MED_W
 
-            # Collect images
             img_b64: dict[int, str] = {}
             for info in page.get_images(full=True):
                 xref = info[0]
@@ -2316,7 +2187,6 @@ try {{
                 except Exception:
                     pass
 
-            # Build items sorted top→bottom, left→right
             items = []
             for block in page.get_text("dict", sort=True).get("blocks", []):
                 y0, x0 = block["bbox"][1], block["bbox"][0]
@@ -2329,7 +2199,6 @@ try {{
                     if xref and xref in img_b64:
                         items.append((y0, x0, "img", img_b64[xref]))
 
-            # Images referenced but not in dict blocks
             placed = {d for _, _, k, d in items if k == "img"}
             for xref, uri in img_b64.items():
                 if uri not in placed:
@@ -2364,8 +2233,6 @@ try {{
                 + "\n<hr>\n".join(pages_html)
                 + "\n</body>\n</html>"
             )
-
-    #  EPUB → PDF  — peak quality
 
     def _epub_to_pdf(self, src, dst):
         """
@@ -2404,9 +2271,9 @@ try {{
         from reportlab.platypus import (
             SimpleDocTemplate, Paragraph, Spacer,
             Image as RLImage, PageBreak, HRFlowable,
-            KeepTogether, Table, TableStyle,
+            Table, TableStyle,
         )
-        from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
+        from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
 
         base = getSampleStyleSheet()
         def _sty(name, **kw):
@@ -2496,7 +2363,6 @@ try {{
         def _inline_markup(frag):
             """Convert inline HTML to reportlab XML, preserving b/i/span styles."""
             h = frag
-            # Handle <span style="...">
             def _span_style(m):
                 style_attr = re.search(r'style=["\']([^"\']*)["\']', m.group(1) or "", re.I)
                 bold, italic, color, size = (False, False, None, None)
@@ -2518,7 +2384,6 @@ try {{
                         h, flags=re.I|re.S)
             h = re.sub(r"<[^>]+>", "", h)
             h = _decode(h)
-            # Escape & restore b/i/font tags
             h = h.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
             for tag in ("b","i"):
                 h = (h.replace(f"&lt;{tag}&gt;", f"<{tag}>")
@@ -2560,9 +2425,7 @@ try {{
                 except Exception:
                     return None
 
-            # Normalise path
             raw_p  = src_attr.split("?")[0].split("#")[0]
-            # Resolve relative path from chapter directory
             try:
                 from pathlib import PurePosixPath
                 resolved = str(PurePosixPath(chap_dir) / raw_p)
@@ -2573,11 +2436,9 @@ try {{
             for c in [raw_p, resolved, raw_p.lstrip("/"),
                        resolved.lstrip("/")]:
                 c_norm = c.replace("\\", "/")
-                # Remove leading ./
                 while c_norm.startswith("./"):
                     c_norm = c_norm[2:]
                 candidates.add(c_norm)
-                # Also try removing leading path segments to find by filename
                 parts = c_norm.split("/")
                 if len(parts) > 1:
                     candidates.add(parts[-1])
@@ -2586,7 +2447,6 @@ try {{
                 b = img_data.get(c)
                 if b:
                     return b, Path(c).suffix.lstrip(".")
-                # Fuzzy match by filename
                 fname = c.split("/")[-1]
                 for k in img_data:
                     if k.split("/")[-1] == fname:
@@ -2645,7 +2505,7 @@ try {{
             )
             pos      = 0
             buf      = ""
-            ol_count = [0]   # stack for ordered list numbering
+            ol_count = [0]
 
             def flush_buf():
                 nonlocal buf
@@ -2688,7 +2548,6 @@ try {{
                     if end_m:
                         inner_html = body[pos:pos+end_m.start()]
                         pos       += end_m.end()
-                        # Inline images inside <p>
                         for img_m in re.finditer(r"<img[^>]+>", inner_html, re.I):
                             sm = re.search(r"""src=(['"])([^'"]+)\1""", img_m.group(0), re.I)
                             if sm:
@@ -2704,7 +2563,7 @@ try {{
 
                 elif tag in ("div","section","article","header",
                              "footer","aside","nav") and not closing:
-                    pass  # just let content flow through
+                    pass
 
                 elif tag == "blockquote" and not closing:
                     end_m = re.search(r"</blockquote\s*>", body[pos:], re.I)
@@ -2719,7 +2578,6 @@ try {{
                     if end_m:
                         raw_pre = body[pos:pos+end_m.start()]
                         pos    += end_m.end()
-                        # Strip only tags, preserve whitespace
                         text = re.sub(r"<[^>]+>", "", raw_pre)
                         text = _decode(text)
                         safe = text.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
@@ -2728,7 +2586,7 @@ try {{
                 elif tag == "ol" and not closing:
                     ol_count[0] = 0
                 elif tag == "ul" and not closing:
-                    ol_count[0] = -1   # sentinel: unordered
+                    ol_count[0] = -1
 
                 elif tag == "li" and not closing:
                     end_m = re.search(r"</li\s*>", body[pos:], re.I)
@@ -2754,7 +2612,7 @@ try {{
                             _add_img(res[0], res[1], alt_m.group(2) if alt_m else "")
 
                 elif tag == "figure" and not closing:
-                    pass  # content flows through
+                    pass
 
                 elif tag == "figcaption" and not closing:
                     end_m = re.search(r"</figcaption\s*>", body[pos:], re.I)
@@ -2778,7 +2636,6 @@ try {{
             buf += body[pos:]
             flush_buf()
 
-        # Open EPUB
         with zipfile.ZipFile(src) as zf:
             names = zf.namelist()
             spine_order  = []
@@ -2840,7 +2697,6 @@ try {{
                     if n.endswith((".xhtml",".html",".htm"))
                 )
 
-            # Pre-load all images
             img_data = {}
             for n in names:
                 ext = Path(n).suffix.lower().lstrip(".")
@@ -2851,12 +2707,10 @@ try {{
                     except Exception:
                         pass
 
-            # Cover page
             if cover_data:
                 _add_img(cover_data[0], cover_data[1], "cover")
                 story.append(PageBreak())
 
-            # Title page
             story.append(Spacer(1, 30*mm))
             story.append(Paragraph(_rl_safe(book_title), sty["title"]))
             if book_authors:
@@ -2865,7 +2719,6 @@ try {{
                     story.append(Paragraph(_rl_safe(auth), sty["author"]))
             story.append(PageBreak())
 
-            # Chapters
             for chap in spine_order:
                 try:
                     raw      = zf.read(chap).decode("utf-8","replace")
@@ -2892,8 +2745,6 @@ try {{
         for f in tmp_imgs:
             try: os.remove(f)
             except Exception: pass
-
-    #  Images — max quality, EXIF preserved
 
     def _image_convert(self, src, dst, conversion_type):
         from PIL import Image, ImageOps
@@ -2924,19 +2775,11 @@ try {{
         else:
             img.save(dst)
 
-    # All standard sizes used by Windows + macOS + Linux icons.
     _ICO_SIZES = [(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)]
 
     def _image_to_ico(self, src, dst, conversion_type=None):
         """
         Convert any Pillow-readable image to a multi-resolution .ico file.
-
-        Key fix: Pillow's `append_images=` parameter is silently ignored for
-        ICO — only the first frame gets written.  The correct approach is to
-        pass `sizes=` directly on the *original* full-resolution image and let
-        Pillow handle the downsampling internally using its own LANCZOS pass.
-
-        Only sizes ≤ the source dimensions are included to avoid upscaling.
         """
         from PIL import Image, ImageOps
 
@@ -2957,7 +2800,6 @@ try {{
         img.save(dst, format="ICO", sizes=sizes)
 
     def _heic_to_png(self, src, dst, conversion_type=None):
-        # 1. pillow-heif
         try:
             from pillow_heif import register_heif_opener
             from PIL import Image, ImageOps
@@ -2971,7 +2813,6 @@ try {{
             return
         except Exception:
             pass
-        # 2. pyheif
         try:
             import pyheif
             from PIL import Image
@@ -2983,11 +2824,8 @@ try {{
             return
         except Exception:
             pass
-        # 3. ImageMagick CLI
         subprocess.run(["magick", "convert", src, dst],
                        check=True, capture_output=True, timeout=120)
-
-    #  Audio / Video — ffmpeg, auto-located, quality presets
 
     _FFMPEG_PRESETS = {
         "mp3":  ["-codec:a","libmp3lame","-q:a","2","-ar","44100"],
@@ -3040,14 +2878,13 @@ try {{
             output = result.stderr.decode("utf-8", errors="replace")
             return "Audio:" in output
         except Exception:
-            return True  # on error, let ffmpeg attempt the conversion anyway
+            return True
 
     def _ffmpeg_convert(self, src, dst, conversion_type):
         target_ext = Path(dst).suffix.lower().lstrip(".")
         presets    = self._FFMPEG_PRESETS.get(target_ext, [])
         ffmpeg_bin = self._find_ffmpeg()
 
-        # Check for audio track before video-to-audio extractions
         _AUDIO_EXTS = {"mp3", "wav", "aac", "ogg", "flac"}
         _VIDEO_EXTS = {".mp4", ".avi", ".mkv", ".webm", ".mov",
                        ".m4v", ".flv", ".wmv", ".ts", ".3gp"}

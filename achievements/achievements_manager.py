@@ -63,7 +63,6 @@ def _load_dark_mode() -> bool:
     except Exception:
         return False
 
-# Shared stylesheet helper
 _LIGHT_STYLE = """
 QDialog, QWidget {
     background-color: #f8f9fa;
@@ -688,14 +687,12 @@ class TranslationManager:
         lang = self.current_language if self.current_language in self.translations else "en"
         translated = self.translations.get(lang, {}).get(text, text)
         
-        # Case 1: single positional argument → treat as value for {0}
         if len(args) == 1 and not kwargs:
             try:
                 return translated.format(args[0])
             except (KeyError, IndexError, ValueError):
                 return translated
         
-        # Case 2: kwargs or multiple args → standard behavior
         try:
             if kwargs:
                 return translated.format(*args, **kwargs)
@@ -735,8 +732,6 @@ class AchievementsManager(QDialog):
         self.language = language if language is not None else detect_language()
         self.dark_mode = _load_dark_mode()
 
-        # Apply our own stylesheet immediately — this overrides any cascade
-        # from the parent window (app.py) and restores correct emoji rendering.
         self.setStyleSheet(_DARK_STYLE if self.dark_mode else _LIGHT_STYLE)
 
         self.translator = TranslationManager(self.language)
@@ -754,7 +749,6 @@ class AchievementsManager(QDialog):
         except Exception:
             return False
 
-    # kept for backward-compat if called externally
     def apply_light_theme(self):
         self.setStyleSheet(_LIGHT_STYLE)
 
@@ -799,7 +793,6 @@ class AchievementsManager(QDialog):
         counters_layout.addStretch()
         stats_layout.addLayout(counters_layout)
 
-        # Bottom row: global progress bar
         from PySide6.QtWidgets import QProgressBar as _QPB
         self.global_progress = _QPB()
         self.global_progress.setRange(0, 100)
@@ -1054,7 +1047,6 @@ class AchievementsManager(QDialog):
             unlocked = bool(ach[11])
             secret   = bool(ach[10])
 
-            # Row tint: green for unlocked, red for locked
             row_bg = QColor("#0d2818" if unlocked else "#1a0a0a") if self.dark_mode else \
                      QColor("#e6f4ea" if unlocked else "#fdf0f0")
 
@@ -1064,23 +1056,18 @@ class AchievementsManager(QDialog):
                 it.setTextAlignment(align)
                 return it
 
-            # 0 — ID
             self.achievements_table.setItem(i, 0, _item(ach[0]))
 
-            # 1 — Name
             name = _parse_ach_name(ach[1], ach[0], "fr")
             self.achievements_table.setItem(i, 1, _item(name))
 
-            # 2 — Category
             self.achievements_table.setItem(i, 2, _item(ach[4]))
 
-            # 3 — Tier (coloured)
             tier_item = _item(ach[5])
             tier_color = TIER_COLORS.get(ach[5], "#8b949e")
             tier_item.setForeground(QColor(tier_color))
             self.achievements_table.setItem(i, 3, tier_item)
 
-            # 4 — Status
             if unlocked:
                 status_text  = self.translator.translate("✅ DÉBLOQUÉ")
                 status_color = QColor("#3fb950")
@@ -1094,7 +1081,6 @@ class AchievementsManager(QDialog):
             status_item.setForeground(status_color)
             self.achievements_table.setItem(i, 4, status_item)
 
-            # 5 — Progress bar
             max_p = int(ach[14]) if ach[14] else 1
             cur_p = min(int(ach[13]) if ach[13] is not None else 0, max_p)
             pbar = QProgressBar()
@@ -1123,11 +1109,9 @@ class AchievementsManager(QDialog):
             pbar_layout.addWidget(pbar)
             self.achievements_table.setCellWidget(i, 5, pbar_container)
 
-            # 6 — Unlock date
             date_str = ach[12][:10] if ach[12] else "—"
             self.achievements_table.setItem(i, 6, _item(date_str, align=Qt.AlignCenter | Qt.AlignVCenter))
 
-            # 7 — Actions
             action_widget = QWidget()
             action_widget.setStyleSheet("background: transparent;")
             action_layout = QHBoxLayout(action_widget)
