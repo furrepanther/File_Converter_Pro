@@ -117,6 +117,11 @@ from conversion_worker import ConversionWorker
 from achievements import AchievementSystem
 from special_events_manager import SpecialEventsManager
 from system_notifier import SystemNotifier
+import re as _re
+
+def _sanitize_xml(t: str) -> str:
+    """Remove control characters that break ReportLab's XML parser."""
+    return _re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', t or '')
 
 
 class AppLogicMixin:
@@ -127,7 +132,6 @@ class AppLogicMixin:
         self.config_manager = config_manager
         self.config = config_manager.load_config()
         self.current_language = self.config.get("language", "fr")
-        # If "use_system_theme" is enabled, re-calculate dark_mode on each launch
         if self.config.get("use_system_theme", True):
             self.dark_mode = is_windows_dark_mode()
         else:
@@ -2733,7 +2737,7 @@ class AppLogicMixin:
                                 alignment=TA_RIGHT
                             )
                     
-                    p = Paragraph(text, style)
+                    p = Paragraph(_sanitize_xml(text), style)
                     story.append(p)
                     story.append(Spacer(1, 6))
             
@@ -2905,7 +2909,7 @@ class AppLogicMixin:
                                 alignment=TA_JUSTIFY
                             )
                     
-                    p = Paragraph(text, style)
+                    p = Paragraph(_sanitize_xml(text), style)
                     story.append(p)
                     story.append(Spacer(1, 6))
             
@@ -3454,7 +3458,6 @@ class AppLogicMixin:
                     try:
                         img = Image.open(file_path).convert('RGB')
                         images.append(img)
-                        # Progressive update
                         self.progress_bar.setValue(int((i + 1) / num_images * 50))
                     except Exception as e:
                         print(f"Image loading error {file_path}: {e}")
@@ -3472,12 +3475,13 @@ class AppLogicMixin:
                     if len(images) > 1:
                         first_image.save(
                             output_file,
+                            format='PDF',
                             save_all=True,
                             append_images=images[1:],
                             resolution=100.0
                         )
                     else:
-                        first_image.save(output_file, resolution=100.0)
+                        first_image.save(output_file, format='PDF', resolution=100.0)
                     
                     conversion_time = (datetime.now() - start_time).total_seconds()
                     
@@ -3536,7 +3540,7 @@ class AppLogicMixin:
                 
                 try:
                     img = Image.open(file_path).convert('RGB')
-                    img.save(output_file)
+                    img.save(output_file, format='PDF')
                     conversion_time = (datetime.now() - start_time).total_seconds()
                     
                     self.achievement_system.update_stat("recent_batch_files", 1)
@@ -5715,7 +5719,7 @@ class AppLogicMixin:
 
     def convert_pdf_to_png_all_pages(self, pdf_path, output_dir):
         try:
-            import fitz  # PyMuPDF — lazy import
+            import fitz
             pdf_document = fitz.open(pdf_path)
             total_pages = len(pdf_document)
             pages_converted = 0
