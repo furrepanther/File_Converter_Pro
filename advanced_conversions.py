@@ -36,12 +36,6 @@ from translations import TranslationManager
 class _ConversionWorker(QObject):
     """
     Runs conversions off the main thread.
-
-    Signals
-    -------
-    progress(done, total, filename)
-    log(message)
-    finished(success_count, fail_count)
     """
     progress = Signal(int, int, str)
     log      = Signal(str)
