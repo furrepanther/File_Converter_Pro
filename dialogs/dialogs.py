@@ -462,7 +462,8 @@ class PreviewDialog(QDialog):
             else:
                 self.preview_unsupported()
         except Exception as e:
-            self._show_error(f"{self.translate_text('Erreur lors du chargement de l\'aperçu:')}\n{e}")
+            translated_msg = self.translate_text('Erreur lors du chargement de l\'aperçu:')
+            self._show_error(f"{translated_msg}\n{e}")
 
     def preview_pdf(self):
         try:
