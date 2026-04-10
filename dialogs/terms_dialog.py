@@ -208,7 +208,8 @@ class TermsAndPrivacyDialog(QDialog):
         terms_layout.setContentsMargins(15, 12, 15, 15)
 
         title_color = "#ffffff" if self.dark_mode else "#212529"
-        terms_title = QLabel(f"<h2 style='color: {title_color}; margin: 0 0 8px 0;'>{self.translate_text('Conditions d\'utilisation')}</h2>")
+        translated_msg = self.translate_text('Conditions d\'utilisation')
+        terms_title = QLabel(f"<h2 style='color: {title_color}; margin: 0 0 8px 0;'>{translated_msg}</h2>")
         terms_title.setStyleSheet(f"background-color: transparent; color: {title_color};")
         terms_layout.addWidget(terms_title)
 
