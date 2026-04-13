@@ -538,7 +538,7 @@ File Converter Pro/
 ├── advanced_conversions.py       # Extra conversion routines
 ├── dashboard.py                  # Statistics dashboard (Matplotlib animated charts)
 ├── database.py                   # SQLite abstraction layer
-├── donate.py                     # Donation dialog — PayPal, animated UI, donor flag
+├── donate.py                     # Donation dialog — kofi, animated UI, donor flag
 ├── history.py                    # Conversion history panel
 ├── widgets.py                    # Shared custom Qt widgets (AnimatedCheckBox, etc.)
 ├── special_events_manager.py     # Date-aware special events (birthday, new year…)
@@ -602,8 +602,8 @@ Anyone can add a new language without touching the source code. Create a `.lang`
     "description": "English translation"
   },
   "strings": {
-    "Paramètres":  "Settings",
-    "Fermer":     "Close",
+    "Paramètres": "Settings",
+    "Fermer": "Close",
     "Gestion des Fichiers": "File Management",
   }
 }

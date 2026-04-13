@@ -1,6 +1,6 @@
 """
 Donate Dialog — File Converter Pro
-A beautiful, animated donation page with PayPal support.
+A beautiful, animated donation page with Ko-fi support.
 Supports dark and light themes automatically.
 
 Author: Hyacinthe
@@ -21,16 +21,12 @@ import webbrowser
 import json
 from pathlib import Path
 import logging
-from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
-PAYPAL_LINK = "https://www.paypal.com/donate/?hosted_button_id=GLKSMC6SYBFHG"
+KOFI_LINK = "https://ko-fi.com/hyacinthe_primus/goal?g=0"
 
 def _donor_flag_path(config_dir: str | None = None) -> Path:
     """
     Returns the path to donor_pending.json.
-      - config_dir provided  → same folder as file_converter_config.dat
-      - build, no config_dir → %APPDATA%/FileConverterPro/ (safe fallback)
-      - dev                  → same folder as donate.py
     """
     if config_dir:
         return Path(config_dir) / "donor_pending.json"
@@ -322,7 +318,7 @@ class AmountPill(QPushButton):
 
 
 class DonateDialog(QDialog):
-    """Beautiful animated donation dialog with PayPal integration."""
+    """Beautiful animated donation dialog with Ko-fi integration."""
 
     AMOUNTS = [("1 €", "1"), ("3 €", "3"), ("5 €", "5"),
                ("10 €", "10"), ("20 €", "20")]
@@ -351,7 +347,7 @@ class DonateDialog(QDialog):
         QTimer.singleShot(40, self._fade_timer.start)
 
         self._pulse_timer = QTimer(self)
-        self._pulse_timer.timeout.connect(self._pulse_paypal)
+        self._pulse_timer.timeout.connect(self._pulse_kofi)
         self._pulse_timer.start(2000)
 
     def _fade_step(self):
@@ -360,11 +356,11 @@ class DonateDialog(QDialog):
         if self._opacity >= 1.0:
             self._fade_timer.stop()
 
-    def _pulse_paypal(self):
-        self._set_paypal_style(bright=False)
-        QTimer.singleShot(380, lambda: self._set_paypal_style(bright=True))
+    def _pulse_kofi(self):
+        self._set_kofi_style(bright=False)
+        QTimer.singleShot(380, lambda: self._set_kofi_style(bright=True))
 
-    def _set_paypal_style(self, bright=True):
+    def _set_kofi_style(self, bright=True):
         if self.dark_mode:
             if bright:
                 css = """
@@ -427,7 +423,7 @@ class DonateDialog(QDialog):
                         letter-spacing: 0.5px;
                     }
                 """
-        self.paypal_btn.setStyleSheet(css)
+        self.kofi_btn.setStyleSheet(css)
 
     def _build_ui(self):
         root = QVBoxLayout(self)
@@ -468,7 +464,7 @@ class DonateDialog(QDialog):
 
         sub = QLabel(
             "This project is completely free and built with passion. "
-            "If it helps you every day, a small donation makes all the difference ✨"
+            "If it helps you every day, a small donation makes all the difference."
         )
         sub.setWordWrap(True)
         sub.setAlignment(Qt.AlignCenter)
@@ -531,14 +527,14 @@ class DonateDialog(QDialog):
         custom_row.addWidget(self._custom_container)
         body_lay.addLayout(custom_row)
 
-        self.paypal_btn = QPushButton("  Donate with PayPal  ❤️")
-        self.paypal_btn.setFixedHeight(52)
-        self.paypal_btn.setCursor(QCursor(Qt.PointingHandCursor))
-        self.paypal_btn.setObjectName("PayPalBtn")
-        self.paypal_btn.clicked.connect(self._open_paypal)
-        body_lay.addWidget(self.paypal_btn)
+        self.kofi_btn = QPushButton("  Donate ❤️  ")
+        self.kofi_btn.setFixedHeight(52)
+        self.kofi_btn.setCursor(QCursor(Qt.PointingHandCursor))
+        self.kofi_btn.setObjectName("KofiBtn")
+        self.kofi_btn.clicked.connect(self._open_kofi)
+        body_lay.addWidget(self.kofi_btn)
 
-        note = QLabel("Secure payment via PayPal  •  No account required")
+        note = QLabel("Secure payment via Ko-fi  •  No account required")
         note.setAlignment(Qt.AlignCenter)
         note.setObjectName("DonateNote")
         body_lay.addWidget(note)
@@ -614,36 +610,28 @@ class DonateDialog(QDialog):
                 pass
         return self._selected_amount
 
-    def _open_paypal(self):
-
+    def _open_kofi(self):
         try:
             amount = self._effective_amount()
 
-            # Saving flag before any action
             mark_donor_pending(amount, getattr(self, "_config_dir", None))
 
-            # URL handling
-            parsed = urlparse(PAYPAL_LINK)
-            query = parse_qs(parsed.query)
-            query["amount"] = [str(amount)]
-            url = urlunparse(parsed._replace(query=urlencode(query, doseq=True)))
-
-            if webbrowser.open(url):
-                self.paypal_btn.setText(" Redirection... ")
-                self.paypal_btn.setEnabled(False)
-                QTimer.singleShot(2500, self._reset_paypal_btn)
+            if webbrowser.open(KOFI_LINK):
+                self.kofi_btn.setText(" Redirection... ")
+                self.kofi_btn.setEnabled(False)
+                QTimer.singleShot(2500, self._reset_kofi_btn)
                 QTimer.singleShot(1250, self.accept)
             else:
                 raise RuntimeError("System fails to launch default browser")
-        
-        except Exception as e:
-            logging.error(f"[Paypal Error] {e}", exc_info=True)
-            QMessageBox.critical(self, "Redirection Error", f"Unable to open Paypal page.\n\nDetail: {e}")
-            self._reset_paypal_btn()
 
-    def _reset_paypal_btn(self):
-        self.paypal_btn.setText("  Donate with PayPal  ❤️")
-        self.paypal_btn.setEnabled(True)
+        except Exception as e:
+            logging.error(f"[Ko-fi Error] {e}", exc_info=True)
+            QMessageBox.critical(self, "Redirection Error", f"Unable to open Ko-fi page.\n\nDetail: {e}")
+            self._reset_kofi_btn()
+
+    def _reset_kofi_btn(self):
+        self.kofi_btn.setText("  Donate ❤️  ")
+        self.kofi_btn.setEnabled(True)
 
     def _apply_theme(self):
         if self.dark_mode:
@@ -654,7 +642,7 @@ class DonateDialog(QDialog):
         self.heart_canvas.set_dark_mode(self.dark_mode)
         for _, pill in self._pills:
             pill.set_dark_mode(self.dark_mode)
-        self._set_paypal_style(bright=True)
+        self._set_kofi_style(bright=True)
 
     def _apply_dark(self):
         self.setStyleSheet("""
@@ -861,11 +849,7 @@ class ThankYouCanvas(QWidget):
 class ThankYouDialog(QDialog):
     """
     Special 'Thank You' dialog shown on the next app launch
-    after the user clicked the PayPal donation button.
-
-    Usage (in your main window __init__ or show event):
-        from donate import pop_donor_flag, ThankYouDialog
-        data = pop_donor_flag()
+    after the user clicked the Ko-fi donation button.
     """
 
     def __init__(self, parent=None, dark_mode=True, amount=""):
@@ -943,7 +927,7 @@ class ThankYouDialog(QDialog):
             "Every contribution helps keep File Converter Pro "
             "free, updated, and full of new features.\n\n"
             "You're the reason this project keeps going. "
-            "From the bottom of my heart — thank you! 💙"
+            "From the bottom of my heart. Thank you! 💙"
         )
         msg = QLabel(msg_text)
         msg.setWordWrap(True)

@@ -2155,7 +2155,7 @@ class AppUIMixin(AppLogicMixin):
     def _check_donor_return(self):
         """
         Called once at startup (via QTimer.singleShot).
-        If the user clicked PayPal in a previous session, a flag file was
+        If the user clicked Ko-fi in a previous session, a flag file was
         written by donate.py.  We pop it here and show the Thank You dialog.
         """
         try:
